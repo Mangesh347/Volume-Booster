@@ -1,0 +1,56 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+/* body {
+  width: 240px;
+  font-family: Arial;
+  background: #121212;
+  color: #fff;
+  padding: 12px;
+} */
+/* h3 { text-align: center; margin-bottom: 10px; } */
+body {
+  width: 240px;
+  font-family: Arial;
+  background: #121212;
+  color: #fff;
+  padding: 6px 12px 12px; /* less top padding */
+}
+h3 {
+  text-align: center;
+  margin-top: -4px;        /* move title up */
+  margin-bottom: 8px;
+}
+input[type=range] { width: 100%; }
+.level { text-align: center; margin-top: 6px; }
+button {
+  margin-top: 12px; width: 100%; padding: 8px;
+  border: none; border-radius: 6px;
+  background: #ff5252; color: #fff; font-weight: bold; cursor: pointer;
+}
+.note {
+  margin-top: 16px;   /* moves note down */
+  font-size: 11px;
+  color: #bdbdbd;
+  text-align: center;
+}
+ 
+</style>
+</head>
+<body>
+
+<h3>Volume Booster</h3>
+
+<input type="range" min="1" max="20" step="0.1" id="vol">
+<div class="level">Level: <span id="val">1x</span></div>
+
+<button id="offBtn">TURN OFF</button>
+<div class="note">
+  Reload the page and try again if the extension does not work.
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
