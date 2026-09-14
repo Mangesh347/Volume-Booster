@@ -9,7 +9,7 @@
    - `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` / `PAYPAL_MODE` (`sandbox` or `live`)
    - `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`
    - `INR_USD_RATE` (default `95.12`)
-   - `SITE_URL` (e.g. `https://auralis.vercel.app`)
+   - `SITE_URL` (e.g. `https://volumebooster.vercel.app`)
 3. Deploy. Without keys, checkout runs in **simulated_preview** mode for UI testing.
 
 ## Pricing (matches STT structure)

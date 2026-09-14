@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/website/api/$1" },
+    { "source": "/assets/(.*)", "destination": "/website/assets/$1" },
+    { "source": "/styles.css", "destination": "/website/styles.css" },
+    { "source": "/checkout.css", "destination": "/website/checkout.css" },
+    { "source": "/checkout", "destination": "/website/checkout.html" },
+    { "source": "/checkout.html", "destination": "/website/checkout.html" },
+    { "source": "/privacy", "destination": "/website/privacy.html" },
+    { "source": "/privacy.html", "destination": "/website/privacy.html" },
+    { "source": "/terms", "destination": "/website/terms.html" },
+    { "source": "/terms.html", "destination": "/website/terms.html" },
+    { "source": "/refund", "destination": "/website/refund.html" },
+    { "source": "/refund.html", "destination": "/website/refund.html" },
+    { "source": "/support", "destination": "/website/support.html" },
+    { "source": "/support.html", "destination": "/website/support.html" },
+    { "source": "/", "destination": "/website/index.html" }
+  ]
+}
