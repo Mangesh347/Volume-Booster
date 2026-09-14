@@ -1,0 +1,6 @@
+{
+  "name": "auralis-website",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Auralis marketing site + PayPal/Razorpay checkout"
+}

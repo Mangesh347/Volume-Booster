@@ -1,0 +1,14 @@
+node_modules/
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+*.log
+.vercel
+.turbo
+dist/
+build/
+*.zip
+.idea/
+.vscode/
