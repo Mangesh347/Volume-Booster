@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SoundBlast — Volume Booster",
-  "version": "2.4.0",
-  "description": "Simple soft volume boost for every tab. Clear sound, Safe Boost, Material black & white UI.",
+  "version": "2.5.0",
+  "description": "Clear soft volume boost. One scalloped dial, Safe Boost, Clarity, Bass, Space & Surround.",
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {

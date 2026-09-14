@@ -1,4 +1,4 @@
-// SoundBlast popup — simple Material UI + mathematical wavy dial
+// SoundBlast popup — single scalloped dial + looping wavy volume line
 
 const $ = (id) => document.getElementById(id);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -6,8 +6,10 @@ const $$ = (sel) => document.querySelectorAll(sel);
 const DEFAULTS = {
   powered: true,
   volume: 100,
-  clarity: 35,
-  bassBoost: 20,
+  clarity: 40,
+  bassBoost: 25,
+  space: 0,
+  widen: 0,
   mode: 'softclear',
   autoApply: false
 };
@@ -16,9 +18,10 @@ let state = { ...DEFAULTS };
 let tabId = null;
 let tabUrl = '';
 let entitlement = { pro: false };
+let pathLen = 1;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  buildWavyRings();
+  buildScallop();
   renderUI();
   await loadState();
   await loadEntitlement();
@@ -26,24 +29,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) ping();
 });
 
-/** Perfect circular wavy rings: r = R + A·sin(nθ) */
-function wavyPath(cx, cy, radius, amplitude, waves, strokeWidth) {
-  const steps = waves * 24;
+/** One filled scalloped circle — matches reference lobe geometry (B/W). */
+function scallopD(cx, cy, radius, amplitude, lobes) {
+  const steps = lobes * 28;
   let d = '';
   for (let i = 0; i <= steps; i++) {
     const t = (i / steps) * Math.PI * 2;
-    const r = radius + amplitude * Math.sin(waves * t);
-    const x = cx + r * Math.cos(t);
-    const y = cy + r * Math.sin(t);
+    // Rounded lobes: cos^2 gives soft scallops like the shared image
+    const lobe = Math.pow(0.5 + 0.5 * Math.cos(lobes * t), 1.35);
+    const r = radius + amplitude * (lobe * 2 - 0.35);
+    const x = cx + r * Math.cos(t - Math.PI / 2);
+    const y = cy + r * Math.sin(t - Math.PI / 2);
     d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ',' + y.toFixed(2);
   }
-  return `<path d="${d} Z" stroke-width="${strokeWidth}"/>`;
+  return d + ' Z';
 }
 
-function buildWavyRings() {
-  $('ringA').innerHTML = wavyPath(110, 110, 78, 5.5, 14, 1.5);
-  $('ringB').innerHTML = wavyPath(110, 110, 66, 4.2, 14, 1.25);
-  $('ringC').innerHTML = wavyPath(110, 110, 54, 3.2, 12, 1.1);
+function buildScallop() {
+  const d = scallopD(120, 120, 72, 14, 16);
+  $('scallopFill').setAttribute('d', d);
+  $('scallopTrack').setAttribute('d', d);
+  $('scallopProgress').setAttribute('d', d);
+  $('scallopPulse').setAttribute('d', d);
+
+  try {
+    pathLen = $('scallopTrack').getTotalLength() || 700;
+  } catch {
+    pathLen = 700;
+  }
+
+  $('scallopTrack').style.strokeDasharray = String(pathLen);
+  $('scallopProgress').style.strokeDasharray = String(pathLen);
+  $('scallopProgress').style.strokeDashoffset = String(pathLen);
+  $('scallopPulse').style.strokeDasharray = `32 ${Math.max(80, pathLen - 32)}`;
 }
 
 function send(action, value, cb) {
@@ -111,13 +129,7 @@ function isPro() {
 }
 
 function updateProUi() {
-  if (isPro()) $('proCheckoutLink').style.display = 'none';
-  else $('proCheckoutLink').style.display = '';
-}
-
-function clampVolume(v) {
-  const max = isPro() || !globalThis.AuralisPlan ? 600 : AuralisPlan.FREE_MAX_VOLUME;
-  return Math.max(0, Math.min(max, v));
+  $('proCheckoutLink').style.display = isPro() ? 'none' : '';
 }
 
 function renderUI() {
@@ -125,14 +137,20 @@ function renderUI() {
   $('powerToggle').checked = !!state.powered;
   $('statusText').textContent = state.powered ? 'On' : 'Off';
 
-  const v = state.volume;
-  setSlider($('volumeSlider'), v, 0, 600);
-  updateVolDisplay(v);
+  setSlider($('volumeSlider'), state.volume, 0, 600);
+  updateVolDisplay(state.volume);
+
   setSlider($('claritySlider'), state.clarity, 0, 100);
   $('clarityVal').textContent = state.clarity + '%';
   setSlider($('bassBoostSlider'), state.bassBoost, 0, 100);
   $('bassBoostVal').textContent = state.bassBoost + '%';
-  $$('.preset').forEach((b) => b.classList.toggle('active', parseInt(b.dataset.vol, 10) === v));
+  setSlider($('spaceSlider'), state.space, 0, 100);
+  $('spaceVal').textContent = state.space + '%';
+  setSlider($('widenSlider'), state.widen, 0, 100);
+  $('widenVal').textContent = state.widen + '%';
+
+  $$('.preset').forEach((b) => b.classList.toggle('active', parseInt(b.dataset.vol, 10) === state.volume));
+  $$('.scene').forEach((b) => b.classList.toggle('active', b.dataset.mode === state.mode));
 
   const ab = $('autoApplyBtn');
   ab.classList.toggle('on', !!state.autoApply);
@@ -146,9 +164,11 @@ function applyAll() {
     return;
   }
   send('setVolume', state.volume / 100);
-  send('setMode', 'softclear');
+  send('setMode', state.mode);
   send('setClarity', state.clarity / 100);
   send('setBassBoost', state.bassBoost / 100);
+  send('setSpace', state.space / 100);
+  send('setWiden', state.widen / 100);
 }
 
 function bindAll() {
@@ -167,31 +187,13 @@ function bindAll() {
       this.value = v;
       flashPro();
     }
-    state.volume = v;
-    updateVolDisplay(v);
-    setSlider(this, v, 0, 600);
-    highlightPreset(v);
-    if (state.powered) {
-      send('setVolume', v / 100);
-      chrome.runtime?.sendMessage?.({ action: 'updateBadge', volume: v });
-    }
+    setVolume(v);
   });
 
-  $('claritySlider').addEventListener('input', function () {
-    const v = parseInt(this.value, 10);
-    state.clarity = v;
-    $('clarityVal').textContent = v + '%';
-    setSlider(this, v, 0, 100);
-    send('setClarity', v / 100);
-  });
-
-  $('bassBoostSlider').addEventListener('input', function () {
-    const v = parseInt(this.value, 10);
-    state.bassBoost = v;
-    $('bassBoostVal').textContent = v + '%';
-    setSlider(this, v, 0, 100);
-    send('setBassBoost', v / 100);
-  });
+  bindFx('claritySlider', 'clarity', 'clarityVal', 'setClarity');
+  bindFx('bassBoostSlider', 'bassBoost', 'bassBoostVal', 'setBassBoost');
+  bindFx('spaceSlider', 'space', 'spaceVal', 'setSpace');
+  bindFx('widenSlider', 'widen', 'widenVal', 'setWiden');
 
   $$('.preset').forEach((btn) => btn.addEventListener('click', function () {
     let v = parseInt(this.dataset.vol, 10);
@@ -199,15 +201,19 @@ function bindAll() {
       flashPro();
       v = 200;
     }
-    state.volume = v;
-    $('volumeSlider').value = v;
-    updateVolDisplay(v);
-    setSlider($('volumeSlider'), v, 0, 600);
-    highlightPreset(v);
-    if (state.powered) {
-      send('setVolume', v / 100);
-      chrome.runtime?.sendMessage?.({ action: 'updateBadge', volume: v });
-    }
+    setVolume(v);
+  }));
+
+  $$('.scene').forEach((btn) => btn.addEventListener('click', function () {
+    $$('.scene').forEach((b) => b.classList.remove('active'));
+    this.classList.add('active');
+    state.mode = this.dataset.mode;
+    send('setMode', state.mode);
+    // Re-apply polish sliders after scene base
+    send('setClarity', state.clarity / 100);
+    send('setBassBoost', state.bassBoost / 100);
+    send('setSpace', state.space / 100);
+    send('setWiden', state.widen / 100);
   }));
 
   $('settingsBtn').addEventListener('click', () => {
@@ -251,6 +257,28 @@ function bindAll() {
   });
 }
 
+function bindFx(sliderId, key, labelId, action) {
+  $(sliderId).addEventListener('input', function () {
+    const v = parseInt(this.value, 10);
+    state[key] = v;
+    $(labelId).textContent = v + '%';
+    setSlider(this, v, 0, 100);
+    send(action, v / 100);
+  });
+}
+
+function setVolume(v) {
+  state.volume = v;
+  $('volumeSlider').value = v;
+  updateVolDisplay(v);
+  setSlider($('volumeSlider'), v, 0, 600);
+  $$('.preset').forEach((b) => b.classList.toggle('active', parseInt(b.dataset.vol, 10) === v));
+  if (state.powered) {
+    send('setVolume', v / 100);
+    chrome.runtime?.sendMessage?.({ action: 'updateBadge', volume: v });
+  }
+}
+
 function flashPro() {
   const link = $('proCheckoutLink');
   link.style.transform = 'scale(1.06)';
@@ -267,19 +295,14 @@ function updateVolDisplay(v) {
   const db = v > 0 ? (20 * Math.log10(v / 100)).toFixed(1) : '-∞';
   $('volDb').textContent = (parseFloat(db) >= 0 ? '+' : '') + db + ' dB';
 
-  // Outer progress arc (circumference ≈ 2πr = 640.88 for r=102)
-  const circ = 2 * Math.PI * 102;
-  const pct = Math.min(1, v / 600);
-  $('progressArc').style.strokeDasharray = String(circ);
-  $('progressArc').style.strokeDashoffset = String(circ * (1 - pct));
+  const pct = Math.min(1, Math.max(0, v / 600));
+  const offset = pathLen * (1 - pct);
+  $('scallopProgress').style.strokeDasharray = String(pathLen);
+  $('scallopProgress').style.strokeDashoffset = String(offset);
 
   const high = v >= 300;
   $('safePill').classList.toggle('is-high', high);
   $('safeText').textContent = high
-    ? 'High Boost — volume is limited for safety'
-    : 'Safe Boost — sound stays smooth';
-}
-
-function highlightPreset(v) {
-  $$('.preset').forEach((b) => b.classList.toggle('active', parseInt(b.dataset.vol, 10) === v));
+    ? 'High Boost — kept smooth for comfort'
+    : 'Safe Boost — clear & smooth';
 }

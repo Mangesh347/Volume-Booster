@@ -31,14 +31,15 @@
   const hooked = new WeakSet();
   const srcMap = new WeakMap();
 
-  // Gentler soft-clip — clearer, less harsh than hard limiting
+  // Very gentle soft-clip — clear boost without crunch
   function softClipCurve(amount) {
-    const N = 1024;
+    const N = 2048;
     const c = new Float32Array(N);
-    const k = Math.max(12, amount);
+    const k = Math.max(8, amount);
     for (let i = 0; i < N; i++) {
       const x = (i * 2) / N - 1;
-      c[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
+      // tanh-like softer knee
+      c[i] = Math.tanh(x * (1.2 + k * 0.02)) / Math.tanh(1.2 + k * 0.02);
     }
     return c;
   }
@@ -51,44 +52,41 @@
     masterGain.gain.value = 1;
 
     waveshaper = ctx.createWaveShaper();
-    waveshaper.curve = softClipCurve(28);
+    waveshaper.curve = softClipCurve(18);
     waveshaper.oversample = '4x';
 
     bassFilter = ctx.createBiquadFilter();
     bassFilter.type = 'lowshelf';
-    bassFilter.frequency.value = 180;
+    bassFilter.frequency.value = 160;
     bassFilter.gain.value = 2;
 
     clarityFilter = ctx.createBiquadFilter();
     clarityFilter.type = 'peaking';
-    clarityFilter.frequency.value = 3200;
-    clarityFilter.Q.value = 0.9;
-    clarityFilter.gain.value = 3.5;
+    clarityFilter.frequency.value = 2800;
+    clarityFilter.Q.value = 0.7;
+    clarityFilter.gain.value = 2.5;
 
     presenceFilter = ctx.createBiquadFilter();
     presenceFilter.type = 'peaking';
-    presenceFilter.frequency.value = 5200;
-    presenceFilter.Q.value = 1.1;
-    presenceFilter.gain.value = 1.5;
+    presenceFilter.frequency.value = 4500;
+    presenceFilter.Q.value = 0.85;
+    presenceFilter.gain.value = 1;
 
     hiShelf = ctx.createBiquadFilter();
     hiShelf.type = 'highshelf';
-    hiShelf.frequency.value = 9000;
-    hiShelf.gain.value = 0.5;
+    hiShelf.frequency.value = 8500;
+    hiShelf.gain.value = -1.5;
 
     // Soft compressor — smooth dynamics, less pumping
     compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -18;
-    compressor.knee.value = 16;
-    compressor.ratio.value = 2.8;
-    compressor.attack.value = 0.015;
-    compressor.release.value = 0.32;
+    compressor.threshold.value = -20;
+    compressor.knee.value = 18;
+    compressor.ratio.value = 2.4;
+    compressor.attack.value = 0.02;
+    compressor.release.value = 0.35;
 
     outGain = ctx.createGain();
     outGain.gain.value = 1;
-
-    // Soft high cut to avoid harshness on boost
-    hiShelf.gain.value = -0.5;
 
     convolver = ctx.createConvolver();
     makeImpulse(ctx, 1.6, 0.55);
@@ -217,27 +215,29 @@
     const ctx = sharedCtx;
     const t = ctx.currentTime;
     lastVolume = g;
-    const target = powered ? Math.max(0, g) : 1;
+    const ui = Math.max(0, g);
+    // Soft loudness curve: UI still shows 600%, actual gain stays comfortable
+    const soft = ui <= 1 ? ui : 1 + Math.pow(ui - 1, 0.82) * 0.92;
+    const target = powered ? soft : 1;
 
-    // Extra-smooth ramps — no sudden spikes
     masterGain.gain.cancelScheduledValues(t);
-    masterGain.gain.setTargetAtTime(target, t, 0.12);
+    masterGain.gain.setTargetAtTime(target, t, 0.16);
 
-    // Soft clip stays gentle even at high boost
-    const clipAmt = Math.min(18 + target * 8, 70);
-    waveshaper.curve = softClipCurve(clipAmt);
+    waveshaper.curve = softClipCurve(Math.min(14 + target * 6, 48));
 
-    // Soft makeup + peak protection via compressor (already soft)
-    const mk = target > 1 ? 1 + (target - 1) * 0.035 : 1;
-    outGain.gain.setTargetAtTime(Math.min(mk, 1.22), t, 0.12);
+    // Tame highs as boost rises — prevents harshness
+    const hiCut = target <= 1 ? -1.5 : -1.5 - Math.min((target - 1) * 1.1, 5);
+    hiShelf.gain.setTargetAtTime(hiCut, t, 0.16);
 
-    // At high boost, tighten compression slightly for comfort
-    if (target >= 3) {
-      compressor.threshold.setTargetAtTime(-22, t, 0.15);
-      compressor.ratio.setTargetAtTime(4.5, t, 0.15);
+    const mk = target > 1 ? 1 + (target - 1) * 0.028 : 1;
+    outGain.gain.setTargetAtTime(Math.min(mk, 1.18), t, 0.16);
+
+    if (target >= 2.5) {
+      compressor.threshold.setTargetAtTime(-24, t, 0.18);
+      compressor.ratio.setTargetAtTime(3.6, t, 0.18);
     } else {
-      compressor.threshold.setTargetAtTime(-18, t, 0.15);
-      compressor.ratio.setTargetAtTime(2.8, t, 0.15);
+      compressor.threshold.setTargetAtTime(-20, t, 0.18);
+      compressor.ratio.setTargetAtTime(2.4, t, 0.18);
     }
   }
 
@@ -264,27 +264,28 @@
         break;
       case 'setClarity': {
         const c = parseFloat(value);
-        clarityFilter.gain.setTargetAtTime(c * 9, t, 0.1);
-        presenceFilter.gain.setTargetAtTime(c * 4, t, 0.1);
+        // Mild presence — clear speech without sharp edges
+        clarityFilter.gain.setTargetAtTime(c * 5.5, t, 0.12);
+        presenceFilter.gain.setTargetAtTime(c * 2.2, t, 0.12);
         break;
       }
       case 'setBassBoost': {
         const b = parseFloat(value);
-        bassFilter.gain.setTargetAtTime(b * 12, t, 0.1);
+        bassFilter.gain.setTargetAtTime(b * 8, t, 0.12);
         break;
       }
       case 'setSpace': {
         const w = parseFloat(value);
-        wetGain.gain.setTargetAtTime(w * 0.45, t, 0.12);
-        dryGain.gain.setTargetAtTime(1 - w * 0.22, t, 0.12);
-        if (w > 0.05) makeImpulse(ctx, 1.4 + w * 1.8, 0.7);
+        wetGain.gain.setTargetAtTime(w * 0.32, t, 0.14);
+        dryGain.gain.setTargetAtTime(1 - w * 0.18, t, 0.14);
+        if (w > 0.05) makeImpulse(ctx, 1.3 + w * 1.4, 0.75);
         break;
       }
       case 'setWiden': {
         const w = parseFloat(value);
-        // Slight L/R imbalance illusion for width (kept subtle)
-        widenGainL.gain.setTargetAtTime(1 + w * 0.18, t, 0.1);
-        widenGainR.gain.setTargetAtTime(1 + w * 0.18, t, 0.1);
+        // Subtle stereo space without loudness jump
+        widenGainL.gain.setTargetAtTime(1 + w * 0.1, t, 0.12);
+        widenGainR.gain.setTargetAtTime(1 + w * 0.12, t, 0.12);
         break;
       }
       case 'setFreq':
@@ -333,55 +334,46 @@
 
     switch (mode) {
       case 'softclear':
-        clarityFilter.frequency.setTargetAtTime(3400, t, r);
-        clarityFilter.gain.setTargetAtTime(5.5, t, r);
-        presenceFilter.gain.setTargetAtTime(2.8, t, r);
+        clarityFilter.frequency.setTargetAtTime(2800, t, r);
+        clarityFilter.gain.setTargetAtTime(3.5, t, r);
+        presenceFilter.gain.setTargetAtTime(1.5, t, r);
         bassFilter.gain.setTargetAtTime(1.5, t, r);
-        hiShelf.gain.setTargetAtTime(1.2, t, r);
-        compressor.ratio.setTargetAtTime(2.8, t, r);
-        waveshaper.curve = softClipCurve(22);
+        hiShelf.gain.setTargetAtTime(-1.5, t, r);
+        compressor.ratio.setTargetAtTime(2.4, t, r);
+        waveshaper.curve = softClipCurve(16);
         document.querySelectorAll('audio,video').forEach((el) => { el.playbackRate = 1.0; });
         break;
       case 'bass':
-        bassFilter.gain.setTargetAtTime(11, t, r);
+        bassFilter.gain.setTargetAtTime(7, t, r);
         clarityFilter.gain.setTargetAtTime(1, t, r);
-        presenceFilter.gain.setTargetAtTime(-1, t, r);
-        waveshaper.curve = softClipCurve(40);
+        presenceFilter.gain.setTargetAtTime(0, t, r);
+        hiShelf.gain.setTargetAtTime(-2.5, t, r);
+        waveshaper.curve = softClipCurve(22);
         break;
       case 'lofi':
-        bassFilter.gain.setTargetAtTime(4, t, r);
-        clarityFilter.gain.setTargetAtTime(-4, t, r);
-        presenceFilter.gain.setTargetAtTime(-3, t, r);
-        hiShelf.gain.setTargetAtTime(-10, t, r);
-        wetGain.gain.setTargetAtTime(0.2, t, r);
-        dryGain.gain.setTargetAtTime(0.92, t, r);
+        bassFilter.gain.setTargetAtTime(3, t, r);
+        clarityFilter.gain.setTargetAtTime(-2, t, r);
+        presenceFilter.gain.setTargetAtTime(-2, t, r);
+        hiShelf.gain.setTargetAtTime(-8, t, r);
+        wetGain.gain.setTargetAtTime(0.15, t, r);
+        dryGain.gain.setTargetAtTime(0.94, t, r);
         makeImpulse(ctx, 1.1, 0.8);
         break;
-      case 'slowreverb':
-        wetGain.gain.setTargetAtTime(0.48, t, r);
-        dryGain.gain.setTargetAtTime(0.78, t, r);
-        hiShelf.gain.setTargetAtTime(-2, t, r);
-        makeImpulse(ctx, 3.2, 0.75);
-        document.querySelectorAll('audio,video').forEach((el) => {
-          el.playbackRate = 0.85;
-          try { el.preservesPitch = true; } catch (_) {}
-        });
-        break;
       case 'vocal':
-        clarityFilter.frequency.setTargetAtTime(2600, t, r);
-        clarityFilter.gain.setTargetAtTime(7, t, r);
-        presenceFilter.gain.setTargetAtTime(4, t, r);
-        bassFilter.gain.setTargetAtTime(-2, t, r);
-        hiShelf.gain.setTargetAtTime(2, t, r);
+        clarityFilter.frequency.setTargetAtTime(2400, t, r);
+        clarityFilter.gain.setTargetAtTime(5, t, r);
+        presenceFilter.gain.setTargetAtTime(2.5, t, r);
+        bassFilter.gain.setTargetAtTime(-1.5, t, r);
+        hiShelf.gain.setTargetAtTime(-0.5, t, r);
         break;
       case 'cinema':
-        bassFilter.gain.setTargetAtTime(7, t, r);
-        clarityFilter.gain.setTargetAtTime(3, t, r);
-        presenceFilter.gain.setTargetAtTime(3.5, t, r);
-        hiShelf.gain.setTargetAtTime(3, t, r);
-        wetGain.gain.setTargetAtTime(0.1, t, r);
-        dryGain.gain.setTargetAtTime(0.96, t, r);
-        makeImpulse(ctx, 1.5, 0.6);
+        bassFilter.gain.setTargetAtTime(5, t, r);
+        clarityFilter.gain.setTargetAtTime(2, t, r);
+        presenceFilter.gain.setTargetAtTime(2, t, r);
+        hiShelf.gain.setTargetAtTime(-1, t, r);
+        wetGain.gain.setTargetAtTime(0.08, t, r);
+        dryGain.gain.setTargetAtTime(0.97, t, r);
+        makeImpulse(ctx, 1.4, 0.7);
         break;
       case 'normal':
         bassFilter.gain.setTargetAtTime(0, t, r);

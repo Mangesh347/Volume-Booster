@@ -32,15 +32,22 @@
 </header>
 
 <main>
-  <section class="hero" id="hero" aria-labelledby="volLabel">
+  <section class="hero" aria-labelledby="volLabel">
     <div class="dial" id="dial">
-      <svg class="dial-svg" viewBox="0 0 220 220" aria-hidden="true">
-        <circle class="progress-track" cx="110" cy="110" r="102" fill="none" stroke-width="2"/>
-        <circle class="progress-arc" id="progressArc" cx="110" cy="110" r="102" fill="none" stroke-width="2"
-          stroke-linecap="round" transform="rotate(-90 110 110)"/>
-        <g class="ring ring-a" id="ringA"></g>
-        <g class="ring ring-b" id="ringB"></g>
-        <g class="ring ring-c" id="ringC"></g>
+      <svg class="dial-svg" viewBox="0 0 240 240" aria-hidden="true">
+        <defs>
+          <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.45"/>
+          </filter>
+        </defs>
+        <!-- Single scalloped disc (reference shape, B/W) -->
+        <path id="scallopFill" class="scallop-fill" filter="url(#softShadow)"/>
+        <!-- Full wavy track -->
+        <path id="scallopTrack" class="scallop-track" fill="none"/>
+        <!-- Volume progress along wavy edge + looping dash animation -->
+        <path id="scallopProgress" class="scallop-progress" fill="none"/>
+        <!-- Traveling wave highlight -->
+        <path id="scallopPulse" class="scallop-pulse" fill="none"/>
       </svg>
       <div class="dial-core">
         <p class="dial-kicker" id="volLabel">Boost</p>
@@ -64,25 +71,39 @@
     </div>
 
     <div class="safe-pill" id="safePill">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M3 12c2-4 4-6 5-6s2 3 4 6 3 6 4 6 3-2 5-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-      <span id="safeText">Safe Boost — sound stays smooth</span>
+      <span id="safeText">Safe Boost — clear &amp; smooth</span>
     </div>
   </section>
 
   <section class="quality" aria-labelledby="qualityTitle">
     <div class="quality-head">
-      <h2 id="qualityTitle">Sound Quality</h2>
-      <p>Keep your boost clear and smooth</p>
+      <h2 id="qualityTitle">Sound</h2>
+      <p>Simple controls — clear boost, no harshness</p>
     </div>
+
+    <div class="scenes" role="group" aria-label="Sound scenes">
+      <button type="button" class="scene active" data-mode="softclear">Clear</button>
+      <button type="button" class="scene" data-mode="bass">Bass</button>
+      <button type="button" class="scene" data-mode="vocal">Voice</button>
+      <button type="button" class="scene" data-mode="cinema">Movie</button>
+      <button type="button" class="scene" data-mode="lofi">Soft</button>
+    </div>
+
     <label class="row">
-      <span class="row-top"><span>Clarity</span><span id="clarityVal">35%</span></span>
-      <input type="range" id="claritySlider" min="0" max="100" value="35">
+      <span class="row-top"><span>Clarity</span><span id="clarityVal">40%</span></span>
+      <input type="range" id="claritySlider" min="0" max="100" value="40">
     </label>
     <label class="row">
-      <span class="row-top"><span>Bass</span><span id="bassBoostVal">20%</span></span>
-      <input type="range" id="bassBoostSlider" min="0" max="100" value="20">
+      <span class="row-top"><span>Bass</span><span id="bassBoostVal">25%</span></span>
+      <input type="range" id="bassBoostSlider" min="0" max="100" value="25">
+    </label>
+    <label class="row">
+      <span class="row-top"><span>Space</span><span id="spaceVal">0%</span></span>
+      <input type="range" id="spaceSlider" min="0" max="100" value="0">
+    </label>
+    <label class="row">
+      <span class="row-top"><span>Surround</span><span id="widenVal">0%</span></span>
+      <input type="range" id="widenSlider" min="0" max="100" value="0">
     </label>
   </section>
 </main>
