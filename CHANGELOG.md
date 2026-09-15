@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.2 — 2026-09-15
+
+- Marketing homepage restored at repo root `index.html` so Vercel/GitHub Pages open the site directly.
+- `website/` kept in sync; old privacy-only page remains removed.
+
 ## 2.5.1 — 2026-09-14
 
 - Removed old privacy-only homepage and root site duplicates.
