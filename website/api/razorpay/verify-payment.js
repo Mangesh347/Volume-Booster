@@ -38,13 +38,14 @@ export default async function handler(req, res) {
         provider: "simulated",
         orderId: razorpay_order_id || `SIM_${Date.now()}`
       });
-      if (!grant.ok) {
-        return res.status(503).json({
-          error: grant.error || "Could not activate Pro — check Supabase env",
-          success: false,
-          supabaseSaved: false
-        });
-      }
+    if (!grant.ok) {
+      return res.status(503).json({
+        error: grant.error || "Could not activate Pro — check Supabase env",
+        hint: grant.hint || undefined,
+        success: false,
+        supabaseSaved: false
+      });
+    }
       return res.status(200).json({
         success: true,
         autoPro: true,

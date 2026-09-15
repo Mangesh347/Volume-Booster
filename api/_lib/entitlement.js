@@ -247,6 +247,7 @@ export async function getAccessForUser({ userId, email }) {
 /**
  * Only call after payment provider confirms success.
  * Idempotent on provider + order_id.
+ * Writes email-keyed Pro even when the buyer has not signed up in Auth yet.
  */
 export async function grantProAfterVerifiedPayment({
   email,
@@ -267,11 +268,17 @@ export async function grantProAfterVerifiedPayment({
 
   const { ok: sbOk } = supabaseConfig();
   if (!sbOk) {
-    return { ok: false, error: "Supabase not configured" };
+    return { ok: false, error: "Supabase not configured (set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY on Vercel)" };
   }
 
   let resolvedUserId = userId || (accessToken ? await resolveUserIdFromToken(accessToken) : null);
-  if (!resolvedUserId) resolvedUserId = await findUserIdByEmail(em);
+  if (!resolvedUserId) {
+    try {
+      resolvedUserId = await findUserIdByEmail(em);
+    } catch {
+      resolvedUserId = null;
+    }
+  }
 
   const existing = await findEntitlementByOrder(provider, orderId);
   if (existing) {
@@ -297,36 +304,53 @@ export async function grantProAfterVerifiedPayment({
 
   let finalExpires = expiresAt;
   if (cycle !== "lifetime") {
-    const current = resolvedUserId
-      ? (await sbRest(
+    try {
+      let curExp = null;
+      if (resolvedUserId) {
+        const prof = await sbRest(
           `vb_profiles?user_id=eq.${encodeURIComponent(resolvedUserId)}&select=expires_at,plan&limit=1`
-        )).data?.[0]
-      : null;
-    const curExp = current?.plan === "pro" ? current.expires_at : null;
-    finalExpires = computeExpiresAtRenewal(cycle, curExp);
+        );
+        const row = Array.isArray(prof.data) ? prof.data[0] : null;
+        curExp = row?.plan === "pro" ? row.expires_at : null;
+      }
+      finalExpires = computeExpiresAtRenewal(cycle, curExp);
+    } catch {
+      finalExpires = expiresAt || computeExpiresAtRenewal(cycle, null);
+    }
+  } else {
+    finalExpires = null;
   }
 
   const { license } = signLicense({ email: em, cycle, expiresAt: finalExpires });
 
-  const row = {
+  // Email-first row (no user_id) — avoids FK failures when Auth user does not exist yet
+  const baseRow = {
     email: em,
-    user_id: resolvedUserId || null,
     product: PRODUCT,
     cycle: cycle || "yearly",
     expires_at: finalExpires || null,
     provider,
-    order_id: orderId,
+    order_id: String(orderId),
     license_key: license,
     status: "active",
     pro: true,
     updated_at: new Date().toISOString()
   };
 
-  const res = await sbRest("vb_entitlements", {
-    method: "POST",
-    prefer: "return=representation",
-    body: row
-  });
+  async function insertRow(row) {
+    return sbRest("vb_entitlements", {
+      method: "POST",
+      prefer: "return=representation",
+      body: row
+    });
+  }
+
+  let res = await insertRow(baseRow);
+
+  // Retry with user_id only if first insert failed for another reason and we have a uuid
+  if (!res.ok && resolvedUserId) {
+    res = await insertRow({ ...baseRow, user_id: resolvedUserId });
+  }
 
   if (!res.ok) {
     const dup = await findEntitlementByOrder(provider, orderId);
@@ -342,16 +366,78 @@ export async function grantProAfterVerifiedPayment({
         userId: resolvedUserId
       };
     }
-    return { ok: false, error: "Failed to record entitlement", detail: res.data };
+
+    // Last resort: upsert by email (update latest active seat for this email)
+    const patch = await sbRest(
+      `vb_entitlements?email=eq.${encodeURIComponent(em)}&product=eq.${PRODUCT}&status=eq.active`,
+      {
+        method: "PATCH",
+        prefer: "return=representation",
+        body: {
+          cycle: cycle || "yearly",
+          expires_at: finalExpires || null,
+          provider,
+          order_id: String(orderId),
+          license_key: license,
+          pro: true,
+          status: "active",
+          updated_at: new Date().toISOString()
+        }
+      }
+    );
+    if (patch.ok && Array.isArray(patch.data) && patch.data[0]) {
+      if (resolvedUserId) {
+        await upgradeProfileToPro({
+          userId: resolvedUserId,
+          email: em,
+          cycle: cycle || "yearly",
+          expiresAt: finalExpires
+        });
+      }
+      return {
+        ok: true,
+        pro: true,
+        email: em,
+        cycle: cycle || "yearly",
+        expiresAt: finalExpires,
+        license,
+        userId: resolvedUserId,
+        patched: true
+      };
+    }
+
+    const detail = res.data;
+    const msg =
+      (detail && (detail.message || detail.error || detail.hint)) ||
+      (typeof detail === "string" ? detail : null) ||
+      "Failed to record entitlement";
+    return {
+      ok: false,
+      error: String(msg).slice(0, 240),
+      detail,
+      hint: "Run supabase/vb_schema.sql in Supabase SQL Editor and confirm SUPABASE_SERVICE_ROLE_KEY on Vercel."
+    };
   }
 
+  // Attach auth user when known (non-blocking)
   if (resolvedUserId) {
-    await upgradeProfileToPro({
-      userId: resolvedUserId,
-      email: em,
-      cycle: cycle || "yearly",
-      expiresAt: finalExpires
-    });
+    try {
+      const inserted = Array.isArray(res.data) ? res.data[0] : res.data;
+      if (inserted?.id) {
+        await sbRest(`vb_entitlements?id=eq.${encodeURIComponent(inserted.id)}`, {
+          method: "PATCH",
+          body: { user_id: resolvedUserId, updated_at: new Date().toISOString() }
+        });
+      }
+      await upgradeProfileToPro({
+        userId: resolvedUserId,
+        email: em,
+        cycle: cycle || "yearly",
+        expiresAt: finalExpires
+      });
+    } catch {
+      /* Pro seat is still valid on email */
+    }
   }
 
   return {

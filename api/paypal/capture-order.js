@@ -93,6 +93,7 @@ export default async function handler(req, res) {
     if (!grant.ok) {
       return res.status(503).json({
         error: grant.error || "Payment captured but Pro could not be saved. Contact support.",
+        hint: grant.hint || undefined,
         success: false,
         supabaseSaved: false,
         paypal_status: cap.status
