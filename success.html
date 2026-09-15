@@ -42,8 +42,9 @@
       location.replace(failBack);
     }
 
-    function openExtension() {
-      // Best-effort: notify installed extension, then try open popup page
+    // Never open chrome-extension:// URLs from the site — Chrome + ad blockers
+    // show ERR_BLOCKED_BY_CLIENT. Notify the extension via externally_connectable only.
+    function pingExtension() {
       try {
         if (chrome?.runtime?.sendMessage) {
           chrome.runtime.sendMessage(EXT_ID, {
@@ -53,9 +54,6 @@
             expiresAt
           }, () => void chrome.runtime.lastError);
         }
-      } catch (_) {}
-      try {
-        window.open("chrome-extension://" + EXT_ID + "/popup.html", "_blank");
       } catch (_) {}
     }
 
@@ -69,17 +67,18 @@
       document.getElementById("kicker").textContent = "Payment verified";
       document.getElementById("title").textContent = "Pro is ready";
       document.getElementById("lead").innerHTML =
-        "Pro is active for <strong>" + em + "</strong>. No license key. No Unlock step.<br>" +
-        "Click below to open Volume Booster — Pro turns on for this billing email automatically.";
+        "Pro is active for <strong>" + em + "</strong>. No license key.<br>" +
+        "Click the <strong>Volume Booster</strong> icon in your Chrome toolbar — Pro turns on for this billing email automatically.";
       document.getElementById("meta").innerHTML = until + ". When the plan ends, you return to Free automatically.";
       const actions = document.getElementById("actions");
       actions.hidden = false;
       actions.innerHTML =
-        '<a class="ck-btn ck-btn-dark" href="#" id="openExt" style="display:inline-flex;text-decoration:none;margin:16px 0 8px">Open Volume Booster</a>' +
+        '<button type="button" class="ck-btn ck-btn-dark" id="pingExt" style="display:inline-flex;margin:16px 0 8px;cursor:pointer">Refresh Pro in extension</button>' +
         '<br><a href="/">Back to home</a>';
-      document.getElementById("openExt").addEventListener("click", (e) => {
-        e.preventDefault();
-        openExtension();
+      document.getElementById("pingExt").addEventListener("click", () => {
+        pingExtension();
+        const btn = document.getElementById("pingExt");
+        btn.textContent = "Sent — open the toolbar icon";
       });
 
       try {
@@ -89,8 +88,7 @@
         if (data.cycle) localStorage.setItem("vb_pro_cycle", data.cycle);
       } catch (_) {}
 
-      // Auto-open extension shortly after verified success
-      setTimeout(openExtension, 600);
+      pingExtension();
     }
 
     (async function run() {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.8 — 2026-09-15
+
+- Success page no longer opens `chrome-extension://…` (caused `ERR_BLOCKED_BY_CLIENT`). Pings extension + tells user to click the toolbar icon.
+
 ## 2.9.7 — 2026-09-15
 
 - Checkout: pay → **verify** → redirect `/success.html` (no license / Unlock / gear / Google on payment).
