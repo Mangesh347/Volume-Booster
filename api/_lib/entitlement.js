@@ -1,9 +1,10 @@
 /**
- * Shared Volume Booster entitlement helpers (signed license, optional Supabase).
+ * Volume Booster entitlement — signed license + Supabase Pro/Free.
  */
 import crypto from "crypto";
+import { sbRest, findUserIdByEmail, supabaseConfig } from "./supabase.js";
 
-const PRODUCT = "volume_booster";
+export const PRODUCT = "volume_booster";
 
 function secret() {
   return (
@@ -16,6 +17,12 @@ function secret() {
 
 export function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+export function isProActive(plan, expiresAt) {
+  if (plan !== "pro") return false;
+  if (!expiresAt) return true;
+  return new Date(expiresAt).getTime() > Date.now();
 }
 
 export function signLicense({ email, cycle, expiresAt }) {
@@ -79,34 +86,138 @@ function validatePayload(payload, mode) {
   };
 }
 
-/** Best-effort record (optional). Never fails the payment if Supabase is missing. */
-export async function recordEntitlement({ email, cycle, expiresAt, provider, orderId }) {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return { recorded: false, reason: "no_supabase" };
+export async function ensureProfile({ userId, email }) {
+  if (!userId) return null;
+  const em = normalizeEmail(email);
+  const get = await sbRest(
+    `vb_profiles?user_id=eq.${encodeURIComponent(userId)}&select=*&limit=1`
+  );
+  if (get.ok && Array.isArray(get.data) && get.data[0]) {
+    if (em && get.data[0].email !== em) {
+      await sbRest(`vb_profiles?user_id=eq.${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        body: { email: em, updated_at: new Date().toISOString() }
+      });
+    }
+    return get.data[0];
+  }
+  const ins = await sbRest("vb_profiles", {
+    method: "POST",
+    prefer: "return=representation",
+    body: {
+      user_id: userId,
+      email: em || null,
+      plan: "free",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  });
+  return Array.isArray(ins.data) ? ins.data[0] : ins.data;
+}
+
+export async function upgradeProfileToPro({ userId, email, cycle, expiresAt }) {
+  if (!userId) return { ok: false };
+  await ensureProfile({ userId, email });
+  const res = await sbRest(`vb_profiles?user_id=eq.${encodeURIComponent(userId)}`, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: {
+      plan: "pro",
+      cycle: cycle || "yearly",
+      expires_at: expiresAt || null,
+      email: normalizeEmail(email) || undefined,
+      updated_at: new Date().toISOString()
+    }
+  });
+  return { ok: res.ok, profile: Array.isArray(res.data) ? res.data[0] : res.data };
+}
+
+export async function getAccessForUser({ userId, email }) {
+  const em = normalizeEmail(email);
+  if (userId) {
+    const prof = await sbRest(
+      `vb_profiles?user_id=eq.${encodeURIComponent(userId)}&select=*&limit=1`
+    );
+    if (prof.ok && Array.isArray(prof.data) && prof.data[0]) {
+      const p = prof.data[0];
+      if (isProActive(p.plan, p.expires_at)) {
+        return { plan: "pro", cycle: p.cycle, expiresAt: p.expires_at, email: p.email || em };
+      }
+    }
+  }
+
+  if (em) {
+    const ent = await sbRest(
+      `vb_entitlements?email=eq.${encodeURIComponent(em)}&product=eq.${PRODUCT}&status=eq.active&pro=eq.true&select=*&order=updated_at.desc&limit=1`
+    );
+    if (ent.ok && Array.isArray(ent.data) && ent.data[0]) {
+      const row = ent.data[0];
+      if (!row.expires_at || new Date(row.expires_at).getTime() > Date.now()) {
+        if (userId) {
+          await upgradeProfileToPro({
+            userId,
+            email: em,
+            cycle: row.cycle,
+            expiresAt: row.expires_at
+          });
+        }
+        return { plan: "pro", cycle: row.cycle, expiresAt: row.expires_at, email: em };
+      }
+    }
+  }
+
+  return { plan: "free", cycle: null, expiresAt: null, email: em || null };
+}
+
+export async function recordEntitlement({
+  email,
+  cycle,
+  expiresAt,
+  provider,
+  orderId,
+  licenseKey,
+  userId = null
+}) {
+  const { ok } = supabaseConfig();
+  if (!ok) return { recorded: false, reason: "no_supabase" };
+
+  const em = normalizeEmail(email);
+  let resolvedUserId = userId;
+  if (!resolvedUserId && em) {
+    resolvedUserId = await findUserIdByEmail(em);
+  }
 
   try {
     const row = {
-      email: normalizeEmail(email),
+      email: em,
+      user_id: resolvedUserId || null,
       product: PRODUCT,
       cycle: cycle || "yearly",
-      expires_at: expiresAt,
-      provider: provider || "unknown",
+      expires_at: expiresAt || null,
+      provider: provider || "manual",
       order_id: orderId || null,
+      license_key: licenseKey || null,
+      status: "active",
       pro: true,
       updated_at: new Date().toISOString()
     };
-    const res = await fetch(`${url}/rest/v1/vb_entitlements`, {
+
+    const res = await sbRest("vb_entitlements", {
       method: "POST",
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates,return=minimal"
-      },
-      body: JSON.stringify(row)
+      prefer: "resolution=merge-duplicates,return=representation",
+      body: row
     });
-    return { recorded: res.ok, status: res.status };
+
+    if (resolvedUserId) {
+      await upgradeProfileToPro({
+        userId: resolvedUserId,
+        email: em,
+        cycle: cycle || "yearly",
+        expiresAt
+      });
+    }
+
+    return { recorded: res.ok, status: res.status, userId: resolvedUserId };
   } catch (err) {
     return { recorded: false, reason: err.message || String(err) };
   }

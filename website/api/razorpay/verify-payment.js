@@ -30,7 +30,14 @@ export default async function handler(req, res) {
 
     if (!keySecret || String(razorpay_order_id || "").startsWith("SIM_")) {
       const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
-      await recordEntitlement({ email: em, cycle: quote.cycle, expiresAt, provider: "simulated", orderId: razorpay_order_id });
+      await recordEntitlement({
+        email: em,
+        cycle: quote.cycle,
+        expiresAt,
+        provider: "simulated",
+        orderId: razorpay_order_id,
+        licenseKey: license
+      });
       return res.status(200).json({
         success: true,
         email: em,
@@ -61,7 +68,8 @@ export default async function handler(req, res) {
       cycle: quote.cycle,
       expiresAt,
       provider: "razorpay",
-      orderId: razorpay_payment_id
+      orderId: razorpay_payment_id,
+      licenseKey: license
     });
 
     return res.status(200).json({

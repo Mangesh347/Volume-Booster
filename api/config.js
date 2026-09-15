@@ -9,7 +9,7 @@ export default function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
 
   res.status(200).json({
-    product: "auralis",
+    product: "volume_booster",
     paypal_client_id: process.env.PAYPAL_CLIENT_ID || "",
     paypal_mode: (process.env.PAYPAL_MODE || "sandbox").toLowerCase(),
     razorpay_key_id: process.env.RAZORPAY_KEY_ID || "",
@@ -22,8 +22,11 @@ export default function handler(req, res) {
       lifetime: { id: "lifetime", priceUSD: 79.99, name: "Pro Lifetime" }
     },
     providers: ["paypal", "razorpay"],
-    company_name: "Auralis — Fenwick Labs",
+    company_name: "Volume Booster — Fenwick Labs",
     support_email: "support@fenwicklabs.com",
-    site_url: "https://volume-booster-ten.vercel.app"
+    site_url: process.env.SITE_URL || "https://volume-booster-ten.vercel.app",
+    supabase_url: (process.env.SUPABASE_URL || "").replace(/\/$/, ""),
+    supabase_anon_key: process.env.SUPABASE_ANON_KEY || "",
+    google_client_id: process.env.GOOGLE_CLIENT_ID || ""
   });
 }

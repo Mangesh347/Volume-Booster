@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
   "name": "SoundBlast — Volume Booster",
-  "version": "2.5.0",
-  "description": "Clear soft volume boost. One scalloped dial, Safe Boost, Clarity, Bass, Space & Surround.",
+  "version": "2.6.0",
+  "description": "Clear soft volume boost with Google sign-in and Supabase Pro/Free verification.",
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": ["<all_urls>", "https://volume-booster-ten.vercel.app/*"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16":  "icons/icon16.png",
-      "48":  "icons/icon48.png",
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
@@ -22,6 +22,11 @@
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": ["https://volume-booster-ten.vercel.app/*"],
+      "js": ["auth-bridge.js"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
@@ -31,8 +36,8 @@
     }
   ],
   "icons": {
-    "16":  "icons/icon16.png",
-    "48":  "icons/icon48.png",
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   }
 }

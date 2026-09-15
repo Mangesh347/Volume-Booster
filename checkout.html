@@ -16,7 +16,7 @@
       <p class="ck-kicker">Upgrade to Volume Booster Pro</p>
       <p class="ck-price-hero" id="heroPrice">$35.39 per year</p>
 
-      <div class="ck-test on ck-trust" id="testBanner">Upgrade to Pro — secure checkout. Pro unlocks on your billing email.</div>
+      <div class="ck-test on ck-trust" id="testBanner">Sign in with Google, then pay. Pro is verified in Supabase on that account.</div>
 
       <div class="ck-currency" role="group" aria-label="Currency">
         <button type="button" class="active" data-currency="USD" id="curUSD">USD</button>
@@ -70,10 +70,17 @@
         </button>
       </div>
 
-      <div class="ck-or">OR</div>
+      <div class="ck-or">Sign in first</div>
+
+      <a class="ck-btn ck-btn-dark" id="googleAuthLink" href="auth.html" style="display:flex;align-items:center;justify-content:center;text-decoration:none;margin-bottom:12px">
+        Sign in with Google
+      </a>
+      <p class="ck-status" id="googleStatus" style="margin-top:0"></p>
+
+      <div class="ck-or">OR pay as guest</div>
 
       <label class="ck-label" for="buyerEmail">Contact information</label>
-      <input class="ck-input" id="buyerEmail" type="email" autocomplete="email" placeholder="Billing email for Pro activation" required />
+      <input class="ck-input" id="buyerEmail" type="email" autocomplete="email" placeholder="Billing email for Pro (use Google email)" required />
 
       <label class="ck-label">Card via Razorpay</label>
       <div class="ck-card-box">
@@ -217,6 +224,20 @@
         const res = await fetch("/api/config");
         const data = await res.json();
         if (Number(data.inr_usd_rate) > 0) INR_RATE = Number(data.inr_usd_rate);
+        try {
+          const raw = localStorage.getItem("vb_supabase_session");
+          if (raw) {
+            const s = JSON.parse(raw);
+            if (s.email) {
+              document.getElementById("buyerEmail").value = s.email;
+              const gs = document.getElementById("googleStatus");
+              if (gs) {
+                gs.textContent = "Signed in as " + s.email;
+                gs.className = "ck-status ok";
+              }
+            }
+          }
+        } catch (_) {}
       } catch (_) {}
       render();
     }

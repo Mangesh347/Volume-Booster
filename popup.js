@@ -130,6 +130,8 @@ function isPro() {
 
 function updateProUi() {
   $('proCheckoutLink').style.display = isPro() ? 'none' : '';
+  const sync = $('syncProBtn');
+  if (sync && isPro()) sync.textContent = 'Pro';
 }
 
 function renderUI() {
@@ -244,6 +246,77 @@ function bindAll() {
     $('autoApplyBtn').textContent = state.autoApply ? 'Auto on' : 'Auto off';
     if (state.autoApply) chrome.runtime?.sendMessage?.({ action: 'saveState', tabId, url: tabUrl, state });
     else chrome.runtime?.sendMessage?.({ action: 'clearSite', url: tabUrl });
+  });
+
+  $('googleSignInBtn')?.addEventListener('click', () => {
+    chrome.tabs?.create?.({ url: 'https://volume-booster-ten.vercel.app/auth.html' });
+    const hint = $('proHint');
+    if (hint) {
+      hint.textContent = 'Sign in on the site tab, then come back and press Sync Pro.';
+      hint.className = 'settings-hint';
+    }
+  });
+
+  $('syncProBtn')?.addEventListener('click', async () => {
+    const hint = $('proHint');
+    $('syncProBtn').disabled = true;
+    $('syncProBtn').textContent = '…';
+    try {
+      const stored = await new Promise((resolve) => {
+        chrome.storage?.local?.get(['vb_supabase_session', 'auralis_email'], resolve);
+      });
+      const session = stored?.vb_supabase_session;
+      if (!session?.access_token) {
+        if (hint) {
+          hint.textContent = 'No Google session yet. Click Google sign-in first.';
+          hint.className = 'settings-hint is-err';
+        }
+        return;
+      }
+      if (session.email && $('proEmail')) $('proEmail').value = session.email;
+
+      const res = await fetch('https://volume-booster-ten.vercel.app/api/user/access', {
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (hint) {
+          hint.textContent = data.error || 'Session expired — sign in again.';
+          hint.className = 'settings-hint is-err';
+        }
+        return;
+      }
+
+      entitlement = {
+        pro: !!data.pro,
+        email: data.email || session.email,
+        cycle: data.cycle || null,
+        expiresAt: data.expiresAt || null,
+        unlockedAt: Date.now(),
+        plan: data.plan || (data.pro ? 'pro' : 'free')
+      };
+      chrome.storage?.local?.set({
+        auralis_entitlement: entitlement,
+        auralis_email: entitlement.email || ''
+      }, () => {
+        updateProUi();
+        if (hint) {
+          hint.textContent = data.pro
+            ? 'Pro verified via Supabase.'
+            : 'Signed in — Free plan. Upgrade on the website to unlock Pro.';
+          hint.className = data.pro ? 'settings-hint is-ok' : 'settings-hint';
+        }
+        $('syncProBtn').textContent = data.pro ? 'Pro' : 'Free';
+      });
+    } catch (err) {
+      if (hint) {
+        hint.textContent = err.message || 'Sync failed';
+        hint.className = 'settings-hint is-err';
+      }
+    } finally {
+      $('syncProBtn').disabled = false;
+      if ($('syncProBtn').textContent === '…') $('syncProBtn').textContent = 'Sync Pro';
+    }
   });
 
   $('proUnlockBtn')?.addEventListener('click', async () => {

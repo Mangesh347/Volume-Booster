@@ -26,7 +26,14 @@ export default async function handler(req, res) {
 
     if (!clientId || !clientSecret || String(order_id).startsWith("SIM_")) {
       const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
-      await recordEntitlement({ email: em, cycle: quote.cycle, expiresAt, provider: "simulated", orderId: order_id });
+      await recordEntitlement({
+        email: em,
+        cycle: quote.cycle,
+        expiresAt,
+        provider: "simulated",
+        orderId: order_id,
+        licenseKey: license
+      });
       return res.status(200).json({
         success: true,
         email: em,
@@ -63,7 +70,14 @@ export default async function handler(req, res) {
     }
 
     const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
-    await recordEntitlement({ email: em, cycle: quote.cycle, expiresAt, provider: "paypal", orderId: order_id });
+    await recordEntitlement({
+      email: em,
+      cycle: quote.cycle,
+      expiresAt,
+      provider: "paypal",
+      orderId: order_id,
+      licenseKey: license
+    });
 
     return res.status(200).json({
       success: true,

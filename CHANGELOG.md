@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.0 — 2026-09-15
+
+- Supabase Pro/Free verification (`vb_profiles`, `vb_entitlements`).
+- Google sign-in on `/auth.html` + extension Sync Pro via `/api/user/access`.
+- Payments record entitlements into Supabase and upgrade profile to Pro.
+
 ## 2.5.2 — 2026-09-15
 
 - Marketing homepage restored at repo root `index.html` so Vercel/GitHub Pages open the site directly.
