@@ -30,6 +30,9 @@
     },
     canAutoApplyUnlimited(entitlement, existingCount) {
       return this.isPro(entitlement) || existingCount < 1;
+    },
+    canUseAdBlock(entitlement) {
+      return this.isPro(entitlement);
     }
   };
 

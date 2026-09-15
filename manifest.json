@@ -1,14 +1,26 @@
 {
   "manifest_version": 3,
   "name": "SoundBlast — Volume Booster",
-  "version": "2.6.0",
-  "description": "Clear soft volume boost with Google sign-in and Supabase Pro/Free verification.",
-  "permissions": ["activeTab", "scripting", "storage", "tabs"],
-  "host_permissions": ["<all_urls>", "https://volume-booster-ten.vercel.app/*"],
+  "version": "2.9.7",
+  "description": "Pay → verify → success page → Pro auto on billing email.",
+  "permissions": ["activeTab", "scripting", "storage", "tabs", "identity"],
+  "host_permissions": [
+    "<all_urls>",
+    "https://volume-booster-ten.vercel.app/*",
+    "https://accounts.google.com/*",
+    "https://www.googleapis.com/*",
+    "https://*.supabase.co/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://volume-booster-ten.vercel.app/*"
+    ]
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
@@ -22,11 +34,6 @@
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
-    },
-    {
-      "matches": ["https://volume-booster-ten.vercel.app/*"],
-      "js": ["auth-bridge.js"],
-      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
@@ -37,6 +44,7 @@
   ],
   "icons": {
     "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   }

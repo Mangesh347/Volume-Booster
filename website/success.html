@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pro activated — Volume Booster</title>
+  <meta name="description" content="Payment verified. Volume Booster Pro is active on your billing email." />
+  <link rel="stylesheet" href="checkout.css" />
+</head>
+<body class="ck-body">
+  <div class="ck-shell" id="shell">
+    <main class="ck-right ck-success-wrap" style="grid-column:1/-1;max-width:560px;margin:0 auto;padding:48px 24px">
+      <div class="ck-success" id="box">
+        <div class="ck-success-check" aria-hidden="true">…</div>
+        <p class="ck-success-kicker" id="kicker">Checking payment…</p>
+        <h1 id="title">Verifying your Pro unlock</h1>
+        <p class="ck-success-lead" id="lead">Please wait while we confirm payment with the server.</p>
+        <p class="ck-success-meta" id="meta"></p>
+        <p class="ck-success-home" id="actions" hidden></p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const EXT_ID = "khiccfmolhkliobmkflgbpefpgeajhpb";
+    const params = new URLSearchParams(location.search);
+    const email = (params.get("email") || localStorage.getItem("vb_billing_email") || "").trim().toLowerCase();
+    const cycle = params.get("cycle") || localStorage.getItem("vb_pro_cycle") || "";
+    const expiresAt = params.get("expiresAt") || localStorage.getItem("vb_pro_expires_at") || "";
+    const failBack = "/checkout.html?error=verify_failed" + (email ? "&email=" + encodeURIComponent(email) : "") + (cycle ? "&cycle=" + encodeURIComponent(cycle) : "");
+
+    function escapeHtml(s) {
+      return String(s || "").replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+      );
+    }
+
+    function goFail(reason) {
+      try {
+        sessionStorage.setItem("vb_pay_error", reason || "Verification failed");
+      } catch (_) {}
+      location.replace(failBack);
+    }
+
+    function openExtension() {
+      // Best-effort: notify installed extension, then try open popup page
+      try {
+        if (chrome?.runtime?.sendMessage) {
+          chrome.runtime.sendMessage(EXT_ID, {
+            type: "VB_PRO_UNLOCKED",
+            email,
+            cycle,
+            expiresAt
+          }, () => void chrome.runtime.lastError);
+        }
+      } catch (_) {}
+      try {
+        window.open("chrome-extension://" + EXT_ID + "/popup.html", "_blank");
+      } catch (_) {}
+    }
+
+    function showOk(data) {
+      const em = escapeHtml(data.email || email);
+      const until = data.expiresAt
+        ? "Pro active until <strong>" + escapeHtml(new Date(data.expiresAt).toLocaleDateString()) + "</strong>"
+        : "Lifetime Pro on this email";
+
+      document.getElementById("box").querySelector(".ck-success-check").textContent = "✓";
+      document.getElementById("kicker").textContent = "Payment verified";
+      document.getElementById("title").textContent = "Pro is ready";
+      document.getElementById("lead").innerHTML =
+        "Pro is active for <strong>" + em + "</strong>. No license key. No Unlock step.<br>" +
+        "Click below to open Volume Booster — Pro turns on for this billing email automatically.";
+      document.getElementById("meta").innerHTML = until + ". When the plan ends, you return to Free automatically.";
+      const actions = document.getElementById("actions");
+      actions.hidden = false;
+      actions.innerHTML =
+        '<a class="ck-btn ck-btn-dark" href="#" id="openExt" style="display:inline-flex;text-decoration:none;margin:16px 0 8px">Open Volume Booster</a>' +
+        '<br><a href="/">Back to home</a>';
+      document.getElementById("openExt").addEventListener("click", (e) => {
+        e.preventDefault();
+        openExtension();
+      });
+
+      try {
+        localStorage.setItem("vb_billing_email", data.email || email);
+        localStorage.setItem("auralis_billing_email", data.email || email);
+        if (data.expiresAt) localStorage.setItem("vb_pro_expires_at", data.expiresAt);
+        if (data.cycle) localStorage.setItem("vb_pro_cycle", data.cycle);
+      } catch (_) {}
+
+      // Auto-open extension shortly after verified success
+      setTimeout(openExtension, 600);
+    }
+
+    (async function run() {
+      if (!email || !email.includes("@")) {
+        goFail("Missing billing email");
+        return;
+      }
+      try {
+        const res = await fetch("/api/entitlement/activate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.pro) {
+          goFail(data.error || "Pro not found for this email yet");
+          return;
+        }
+        showOk({
+          email: data.email || email,
+          cycle: data.cycle || cycle,
+          expiresAt: data.expiresAt || expiresAt || null
+        });
+      } catch (err) {
+        goFail(err.message || "Network error during verification");
+      }
+    })();
+  </script>
+</body>
+</html>

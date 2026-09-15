@@ -1,10 +1,10 @@
 /**
- * POST /api/razorpay/verify-payment — Volume Booster Pro
+ * POST /api/razorpay/verify-payment — verify signature, then grant Pro in Supabase.
  */
 
 import crypto from "crypto";
 import { quoteINR, computeExpiresAt } from "../_lib/pricing.js";
-import { signLicense, recordEntitlement } from "../_lib/entitlement.js";
+import { grantProAfterVerifiedPayment } from "../_lib/entitlement.js";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -24,33 +24,41 @@ export default async function handler(req, res) {
       cycle = "yearly"
     } = req.body || {};
 
+    const em = String(email).toLowerCase().trim();
+    if (!em.includes("@")) return res.status(400).json({ error: "Valid billing email required" });
+
     const quote = quoteINR(cycle);
     const expiresAt = computeExpiresAt(cycle);
-    const em = String(email).toLowerCase().trim();
 
     if (!keySecret || String(razorpay_order_id || "").startsWith("SIM_")) {
-      const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
-      await recordEntitlement({
+      const grant = await grantProAfterVerifiedPayment({
         email: em,
         cycle: quote.cycle,
         expiresAt,
         provider: "simulated",
-        orderId: razorpay_order_id,
-        licenseKey: license
+        orderId: razorpay_order_id || `SIM_${Date.now()}`
       });
+      if (!grant.ok) {
+        return res.status(503).json({
+          error: grant.error || "Could not activate Pro — check Supabase env",
+          success: false,
+          supabaseSaved: false
+        });
+      }
       return res.status(200).json({
         success: true,
-        email: em,
-        cycle: quote.cycle,
-        expiresAt,
-        license,
-        product: "auralis",
+        autoPro: true,
+        supabaseSaved: true,
+        email: grant.email,
+        cycle: grant.cycle,
+        expiresAt: grant.expiresAt,
+        product: "volume_booster",
         mode: "simulated_preview"
       });
     }
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return res.status(400).json({ error: "Missing Razorpay verification fields" });
+      return res.status(400).json({ error: "Missing Razorpay verification fields", success: false });
     }
 
     const expected = crypto
@@ -59,30 +67,37 @@ export default async function handler(req, res) {
       .digest("hex");
 
     if (expected !== razorpay_signature) {
-      return res.status(400).json({ error: "Invalid payment signature" });
+      return res.status(400).json({ error: "Invalid payment signature — Pro not granted", success: false });
     }
 
-    const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
-    await recordEntitlement({
+    const grant = await grantProAfterVerifiedPayment({
       email: em,
       cycle: quote.cycle,
       expiresAt,
       provider: "razorpay",
-      orderId: razorpay_payment_id,
-      licenseKey: license
+      orderId: razorpay_payment_id
     });
+
+    if (!grant.ok) {
+      return res.status(503).json({
+        error: grant.error || "Payment verified but Pro could not be saved. Contact support.",
+        success: false,
+        supabaseSaved: false
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      email: em,
-      cycle: quote.cycle,
-      expiresAt,
-      license,
-      product: "auralis",
+      autoPro: true,
+      supabaseSaved: true,
+      email: grant.email,
+      cycle: grant.cycle,
+      expiresAt: grant.expiresAt,
+      product: "volume_booster",
       razorpay_order_id,
       razorpay_payment_id
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message || String(err) });
+    return res.status(500).json({ error: err.message || String(err), success: false });
   }
 }

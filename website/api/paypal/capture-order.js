@@ -1,9 +1,9 @@
 /**
- * POST /api/paypal/capture-order — Volume Booster Pro
+ * POST /api/paypal/capture-order — verify PayPal capture, then grant Pro in Supabase.
  */
 
 import { quoteUSD, computeExpiresAt } from "../_lib/pricing.js";
-import { signLicense, recordEntitlement } from "../_lib/entitlement.js";
+import { grantProAfterVerifiedPayment } from "../_lib/entitlement.js";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -20,27 +20,36 @@ export default async function handler(req, res) {
   try {
     const { order_id, email = "", cycle = "yearly" } = req.body || {};
     if (!order_id) return res.status(400).json({ error: "order_id required" });
+    const em = String(email).toLowerCase().trim();
+    if (!em.includes("@")) return res.status(400).json({ error: "Valid billing email required" });
+
     const quote = quoteUSD(cycle);
     const expiresAt = computeExpiresAt(cycle);
-    const em = String(email).toLowerCase().trim();
 
+    // Simulated / missing credentials — still write Pro for billing email when possible
     if (!clientId || !clientSecret || String(order_id).startsWith("SIM_")) {
-      const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
-      await recordEntitlement({
+      const grant = await grantProAfterVerifiedPayment({
         email: em,
         cycle: quote.cycle,
         expiresAt,
         provider: "simulated",
-        orderId: order_id,
-        licenseKey: license
+        orderId: order_id
       });
+      if (!grant.ok) {
+        return res.status(503).json({
+          error: grant.error || "Could not activate Pro — check Supabase env",
+          success: false,
+          supabaseSaved: false
+        });
+      }
       return res.status(200).json({
         success: true,
-        email: em,
-        cycle: quote.cycle,
-        expiresAt,
-        license,
-        product: "auralis",
+        autoPro: true,
+        supabaseSaved: true,
+        email: grant.email,
+        cycle: grant.cycle,
+        expiresAt: grant.expiresAt,
+        product: "volume_booster",
         mode: "simulated_preview"
       });
     }
@@ -65,31 +74,43 @@ export default async function handler(req, res) {
       }
     });
     const cap = await capRes.json();
-    if (!capRes.ok) {
-      return res.status(502).json({ error: cap.message || "PayPal capture failed", details: cap });
+    if (!capRes.ok || (cap.status && cap.status !== "COMPLETED" && cap.status !== "APPROVED")) {
+      return res.status(402).json({
+        error: cap.message || "PayPal payment not completed",
+        details: cap,
+        success: false
+      });
     }
 
-    const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
-    await recordEntitlement({
+    const grant = await grantProAfterVerifiedPayment({
       email: em,
       cycle: quote.cycle,
       expiresAt,
       provider: "paypal",
-      orderId: order_id,
-      licenseKey: license
+      orderId: order_id
     });
+
+    if (!grant.ok) {
+      return res.status(503).json({
+        error: grant.error || "Payment captured but Pro could not be saved. Contact support.",
+        success: false,
+        supabaseSaved: false,
+        paypal_status: cap.status
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      email: em,
-      cycle: quote.cycle,
-      expiresAt,
-      license,
-      product: "auralis",
+      autoPro: true,
+      supabaseSaved: true,
+      email: grant.email,
+      cycle: grant.cycle,
+      expiresAt: grant.expiresAt,
+      product: "volume_booster",
       paypal_status: cap.status,
       order_id
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message || String(err) });
+    return res.status(500).json({ error: err.message || String(err), success: false });
   }
 }

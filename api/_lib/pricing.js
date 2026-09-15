@@ -8,27 +8,27 @@ export const GST_RATE = 0.18;
 export const PLANS = {
   monthly: {
     id: "monthly",
-    name: "Auralis Pro Monthly",
+    name: "Volume Booster Pro Monthly",
     priceUSD: 3.99,
     billingText: "per month",
     days: 30,
-    desc: "Auralis Pro — Monthly"
+    desc: "Volume Booster Pro — Monthly"
   },
   yearly: {
     id: "yearly",
-    name: "Auralis Pro Yearly",
+    name: "Volume Booster Pro Yearly",
     priceUSD: 29.99,
     billingText: "per year",
     days: 365,
-    desc: "Auralis Pro — Yearly"
+    desc: "Volume Booster Pro — Yearly"
   },
   lifetime: {
     id: "lifetime",
-    name: "Auralis Pro Lifetime",
+    name: "Volume Booster Pro Lifetime",
     priceUSD: 79.99,
     billingText: "one-time",
     days: null,
-    desc: "Auralis Pro — Lifetime"
+    desc: "Volume Booster Pro — Lifetime"
   }
 };
 
@@ -84,4 +84,15 @@ export function computeExpiresAt(cycle, from = new Date()) {
   const d = new Date(from);
   d.setUTCDate(d.getUTCDate() + plan.days);
   return d.toISOString();
+}
+
+/** Extend from remaining Pro time (renewal) or from now. Lifetime → null. */
+export function computeExpiresAtRenewal(cycle, currentExpiresAt, from = new Date()) {
+  const plan = getPlan(cycle);
+  if (!plan.days) return null;
+  const now = from instanceof Date ? from : new Date(from);
+  const curMs = currentExpiresAt ? new Date(currentExpiresAt).getTime() : 0;
+  const base = curMs > now.getTime() ? new Date(curMs) : new Date(now);
+  base.setUTCDate(base.getUTCDate() + plan.days);
+  return base.toISOString();
 }

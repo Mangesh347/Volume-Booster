@@ -5,6 +5,29 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.action.setBadgeTextColor({ color: '#ffffff' });
 });
 
+/** Website success page → store billing email / Pro cache (no license paste). */
+chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
+  if (!msg || msg.type !== 'VB_PRO_UNLOCKED') {
+    sendResponse?.({ ok: false });
+    return false;
+  }
+  const email = String(msg.email || '').trim().toLowerCase();
+  const entitlement = {
+    pro: true,
+    email,
+    cycle: msg.cycle || null,
+    expiresAt: msg.expiresAt || null,
+    unlockedAt: Date.now(),
+    plan: 'pro'
+  };
+  chrome.storage.local.set({
+    vb_billing_email: email,
+    auralis_email: email,
+    auralis_entitlement: entitlement
+  }, () => sendResponse?.({ ok: true }));
+  return true;
+});
+
 function getDomain(url) {
   try { return new URL(url).hostname; } catch { return null; }
 }
@@ -56,6 +79,7 @@ function applyToTab(tabId, s) {
     { action: 'setReverb',    value: (s.reverb || 0) / 100 },
     { action: 'setPitch',     value: s.pitch || 1.0 },
     { action: 'setPan',       value: (s.pan || 0) / 100 },
+    { action: 'setAdblock',   value: !!s.adblock },
   ];
   msgs.forEach(m => {
     chrome.tabs.sendMessage(tabId, { target: 'content', ...m }, () => {
@@ -119,6 +143,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (domain) chrome.storage.local.remove(`site_${domain}`);
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) updateBadge(tabs[0].id, 100);
+    });
+    return false;
+  }
+
+  // Content script: music/video playing on a supported host
+  if (msg.action === 'siteUsageTick') {
+    const host = String(msg.host || '').toLowerCase().replace(/^www\./, '');
+    const seconds = Math.min(60, Math.max(1, Math.floor(Number(msg.seconds) || 15)));
+    if (!host) return false;
+    chrome.storage.local.get(['vb_site_usage', 'vb_listen_local'], (res) => {
+      const map = res.vb_site_usage || {};
+      map[host] = (Number(map[host]) || 0) + seconds;
+      const total = Object.values(map).reduce((n, v) => n + (Number(v) || 0), 0);
+      chrome.storage.local.set({
+        vb_site_usage: map,
+        vb_listen_local: total,
+        vb_active_boost_host: host,
+        vb_active_boost_at: Date.now()
+      });
     });
     return false;
   }

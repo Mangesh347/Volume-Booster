@@ -1,8 +1,9 @@
 /**
- * Volume Booster entitlement — signed license + Supabase Pro/Free.
+ * Volume Booster entitlement — payment-verified Pro + Supabase expiry.
  */
 import crypto from "crypto";
-import { sbRest, findUserIdByEmail, supabaseConfig } from "./supabase.js";
+import { sbRest, findUserIdByEmail, supabaseConfig, verifyUserJwt } from "./supabase.js";
+import { computeExpiresAtRenewal } from "./pricing.js";
 
 export const PRODUCT = "volume_booster";
 
@@ -86,6 +87,16 @@ function validatePayload(payload, mode) {
   };
 }
 
+export async function resolveUserIdFromToken(accessToken) {
+  if (!accessToken) return null;
+  try {
+    const user = await verifyUserJwt(accessToken);
+    return user?.id || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function ensureProfile({ userId, email }) {
   if (!userId) return null;
   const em = normalizeEmail(email);
@@ -115,6 +126,47 @@ export async function ensureProfile({ userId, email }) {
   return Array.isArray(ins.data) ? ins.data[0] : ins.data;
 }
 
+export async function downgradeProfileToFree(userId) {
+  if (!userId) return;
+  await sbRest(`vb_profiles?user_id=eq.${encodeURIComponent(userId)}`, {
+    method: "PATCH",
+    body: {
+      plan: "free",
+      updated_at: new Date().toISOString()
+    }
+  });
+}
+
+export async function expireStaleEntitlements(email) {
+  const em = normalizeEmail(email);
+  if (!em) return;
+  const now = new Date().toISOString();
+  await sbRest(
+    `vb_entitlements?email=eq.${encodeURIComponent(em)}&status=eq.active&pro=eq.true&expires_at=lt.${encodeURIComponent(now)}`,
+    {
+      method: "PATCH",
+      body: { status: "expired", pro: false, updated_at: now }
+    }
+  );
+}
+
+export async function expireUserAccess({ userId, email }) {
+  const em = normalizeEmail(email);
+  await expireStaleEntitlements(em);
+
+  if (userId) {
+    const prof = await sbRest(
+      `vb_profiles?user_id=eq.${encodeURIComponent(userId)}&select=*&limit=1`
+    );
+    if (prof.ok && Array.isArray(prof.data) && prof.data[0]) {
+      const p = prof.data[0];
+      if (p.plan === "pro" && p.expires_at && new Date(p.expires_at).getTime() <= Date.now()) {
+        await downgradeProfileToFree(userId);
+      }
+    }
+  }
+}
+
 export async function upgradeProfileToPro({ userId, email, cycle, expiresAt }) {
   if (!userId) return { ok: false };
   await ensureProfile({ userId, email });
@@ -132,8 +184,33 @@ export async function upgradeProfileToPro({ userId, email, cycle, expiresAt }) {
   return { ok: res.ok, profile: Array.isArray(res.data) ? res.data[0] : res.data };
 }
 
+export async function findEntitlementByOrder(provider, orderId) {
+  if (!provider || !orderId) return null;
+  const res = await sbRest(
+    `vb_entitlements?provider=eq.${encodeURIComponent(provider)}&order_id=eq.${encodeURIComponent(orderId)}&select=*&limit=1`
+  );
+  if (res.ok && Array.isArray(res.data) && res.data[0]) return res.data[0];
+  return null;
+}
+
+export async function getActiveEntitlementForEmail(email) {
+  const em = normalizeEmail(email);
+  if (!em) return null;
+  await expireStaleEntitlements(em);
+  const ent = await sbRest(
+    `vb_entitlements?email=eq.${encodeURIComponent(em)}&product=eq.${PRODUCT}&status=eq.active&pro=eq.true&select=*&order=updated_at.desc&limit=5`
+  );
+  if (!ent.ok || !Array.isArray(ent.data)) return null;
+  for (const row of ent.data) {
+    if (!row.expires_at || new Date(row.expires_at).getTime() > Date.now()) return row;
+  }
+  return null;
+}
+
 export async function getAccessForUser({ userId, email }) {
   const em = normalizeEmail(email);
+  await expireUserAccess({ userId, email: em });
+
   if (userId) {
     const prof = await sbRest(
       `vb_profiles?user_id=eq.${encodeURIComponent(userId)}&select=*&limit=1`
@@ -143,82 +220,172 @@ export async function getAccessForUser({ userId, email }) {
       if (isProActive(p.plan, p.expires_at)) {
         return { plan: "pro", cycle: p.cycle, expiresAt: p.expires_at, email: p.email || em };
       }
+      if (p.plan === "pro" && p.expires_at && new Date(p.expires_at).getTime() <= Date.now()) {
+        await downgradeProfileToFree(userId);
+      }
     }
   }
 
   if (em) {
-    const ent = await sbRest(
-      `vb_entitlements?email=eq.${encodeURIComponent(em)}&product=eq.${PRODUCT}&status=eq.active&pro=eq.true&select=*&order=updated_at.desc&limit=1`
-    );
-    if (ent.ok && Array.isArray(ent.data) && ent.data[0]) {
-      const row = ent.data[0];
-      if (!row.expires_at || new Date(row.expires_at).getTime() > Date.now()) {
-        if (userId) {
-          await upgradeProfileToPro({
-            userId,
-            email: em,
-            cycle: row.cycle,
-            expiresAt: row.expires_at
-          });
-        }
-        return { plan: "pro", cycle: row.cycle, expiresAt: row.expires_at, email: em };
+    const row = await getActiveEntitlementForEmail(em);
+    if (row) {
+      if (userId) {
+        await upgradeProfileToPro({
+          userId,
+          email: em,
+          cycle: row.cycle,
+          expiresAt: row.expires_at
+        });
       }
+      return { plan: "pro", cycle: row.cycle, expiresAt: row.expires_at, email: em };
     }
   }
 
   return { plan: "free", cycle: null, expiresAt: null, email: em || null };
 }
 
-export async function recordEntitlement({
+/**
+ * Only call after payment provider confirms success.
+ * Idempotent on provider + order_id.
+ */
+export async function grantProAfterVerifiedPayment({
   email,
   cycle,
   expiresAt,
   provider,
   orderId,
-  licenseKey,
-  userId = null
+  userId = null,
+  accessToken = null
 }) {
-  const { ok } = supabaseConfig();
-  if (!ok) return { recorded: false, reason: "no_supabase" };
-
   const em = normalizeEmail(email);
-  let resolvedUserId = userId;
-  if (!resolvedUserId && em) {
-    resolvedUserId = await findUserIdByEmail(em);
+  if (!em.includes("@")) {
+    return { ok: false, error: "Valid billing email required" };
+  }
+  if (!provider || !orderId) {
+    return { ok: false, error: "Missing payment reference" };
   }
 
-  try {
-    const row = {
-      email: em,
-      user_id: resolvedUserId || null,
-      product: PRODUCT,
-      cycle: cycle || "yearly",
-      expires_at: expiresAt || null,
-      provider: provider || "manual",
-      order_id: orderId || null,
-      license_key: licenseKey || null,
-      status: "active",
-      pro: true,
-      updated_at: new Date().toISOString()
-    };
+  const { ok: sbOk } = supabaseConfig();
+  if (!sbOk) {
+    return { ok: false, error: "Supabase not configured" };
+  }
 
-    const res = await sbRest("vb_entitlements", {
-      method: "POST",
-      prefer: "resolution=merge-duplicates,return=representation",
-      body: row
-    });
+  let resolvedUserId = userId || (accessToken ? await resolveUserIdFromToken(accessToken) : null);
+  if (!resolvedUserId) resolvedUserId = await findUserIdByEmail(em);
 
-    if (resolvedUserId) {
+  const existing = await findEntitlementByOrder(provider, orderId);
+  if (existing) {
+    if (resolvedUserId && existing.status === "active") {
       await upgradeProfileToPro({
         userId: resolvedUserId,
         email: em,
-        cycle: cycle || "yearly",
-        expiresAt
+        cycle: existing.cycle,
+        expiresAt: existing.expires_at
       });
     }
-
-    return { recorded: res.ok, status: res.status, userId: resolvedUserId };
-  } catch (err) {
-    return { recorded: false, reason: err.message || String(err) };
+    return {
+      ok: true,
+      duplicate: true,
+      pro: true,
+      email: existing.email || em,
+      cycle: existing.cycle,
+      expiresAt: existing.expires_at,
+      license: existing.license_key,
+      userId: resolvedUserId
+    };
   }
+
+  let finalExpires = expiresAt;
+  if (cycle !== "lifetime") {
+    const current = resolvedUserId
+      ? (await sbRest(
+          `vb_profiles?user_id=eq.${encodeURIComponent(resolvedUserId)}&select=expires_at,plan&limit=1`
+        )).data?.[0]
+      : null;
+    const curExp = current?.plan === "pro" ? current.expires_at : null;
+    finalExpires = computeExpiresAtRenewal(cycle, curExp);
+  }
+
+  const { license } = signLicense({ email: em, cycle, expiresAt: finalExpires });
+
+  const row = {
+    email: em,
+    user_id: resolvedUserId || null,
+    product: PRODUCT,
+    cycle: cycle || "yearly",
+    expires_at: finalExpires || null,
+    provider,
+    order_id: orderId,
+    license_key: license,
+    status: "active",
+    pro: true,
+    updated_at: new Date().toISOString()
+  };
+
+  const res = await sbRest("vb_entitlements", {
+    method: "POST",
+    prefer: "return=representation",
+    body: row
+  });
+
+  if (!res.ok) {
+    const dup = await findEntitlementByOrder(provider, orderId);
+    if (dup) {
+      return {
+        ok: true,
+        duplicate: true,
+        pro: true,
+        email: dup.email || em,
+        cycle: dup.cycle,
+        expiresAt: dup.expires_at,
+        license: dup.license_key,
+        userId: resolvedUserId
+      };
+    }
+    return { ok: false, error: "Failed to record entitlement", detail: res.data };
+  }
+
+  if (resolvedUserId) {
+    await upgradeProfileToPro({
+      userId: resolvedUserId,
+      email: em,
+      cycle: cycle || "yearly",
+      expiresAt: finalExpires
+    });
+  }
+
+  return {
+    ok: true,
+    pro: true,
+    email: em,
+    cycle: cycle || "yearly",
+    expiresAt: finalExpires,
+    license,
+    userId: resolvedUserId
+  };
+}
+
+/** @deprecated use grantProAfterVerifiedPayment */
+export async function recordEntitlement(opts) {
+  const result = await grantProAfterVerifiedPayment({
+    email: opts.email,
+    cycle: opts.cycle,
+    expiresAt: opts.expiresAt,
+    provider: opts.provider || "manual",
+    orderId: opts.orderId || `manual_${Date.now()}`,
+    userId: opts.userId,
+    accessToken: opts.accessToken
+  });
+  return { recorded: result.ok, ...result };
+}
+
+export function entitlementPayload(access) {
+  return {
+    pro: access.plan === "pro",
+    plan: access.plan,
+    email: access.email,
+    cycle: access.cycle,
+    expiresAt: access.expiresAt,
+    unlockedAt: Date.now()
+  };
 }

@@ -5,7 +5,9 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/checkout", "destination": "/checkout.html" },
-    { "source": "/auth", "destination": "/auth.html" },
+    { "source": "/success", "destination": "/success.html" },
+    { "source": "/auth-ext", "destination": "/checkout.html" },
+    { "source": "/auth", "destination": "/checkout.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/refund", "destination": "/refund.html" },
