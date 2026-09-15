@@ -24,6 +24,6 @@ export default function handler(req, res) {
     providers: ["paypal", "razorpay"],
     company_name: "Auralis — Fenwick Labs",
     support_email: "support@fenwicklabs.com",
-    site_url: "https://volumebooster.vercel.app"
+    site_url: "https://volume-booster-ten.vercel.app"
   });
 }

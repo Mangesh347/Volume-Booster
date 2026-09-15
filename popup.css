@@ -241,3 +241,9 @@ body.is-off .quality { opacity: 0.42; pointer-events: none; }
   border: 1px solid var(--line); background: var(--raised); color: var(--text);
   font: inherit; font-size: 11px;
 }
+.settings-hint {
+  font-size: 10px; color: var(--muted); line-height: 1.35; margin-top: -2px;
+}
+.settings-hint.is-ok { color: #b8f0c8; }
+.settings-hint.is-err { color: #ffb4b4; }
+

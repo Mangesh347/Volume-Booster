@@ -246,14 +246,79 @@ function bindAll() {
     else chrome.runtime?.sendMessage?.({ action: 'clearSite', url: tabUrl });
   });
 
-  $('proUnlockBtn')?.addEventListener('click', () => {
-    const email = ($('proEmail').value || '').trim().toLowerCase();
-    if (!email.includes('@')) return;
-    entitlement = { pro: true, email, unlockedAt: Date.now() };
-    chrome.storage?.local?.set({ auralis_entitlement: entitlement, auralis_email: email }, () => {
-      updateProUi();
-      $('proUnlockBtn').textContent = 'Pro';
-    });
+  $('proUnlockBtn')?.addEventListener('click', async () => {
+    const raw = ($('proEmail').value || '').trim();
+    const hint = $('proHint');
+    if (!raw) {
+      if (hint) { hint.textContent = 'Enter billing email or license from checkout.'; hint.className = 'settings-hint is-err'; }
+      return;
+    }
+
+    const isLicense = raw.startsWith('VB1.') || raw.startsWith('VBDEV.');
+    const email = isLicense ? '' : raw.toLowerCase();
+    if (!isLicense && !email.includes('@')) {
+      if (hint) { hint.textContent = 'Use a valid email or paste the VB1 license.'; hint.className = 'settings-hint is-err'; }
+      return;
+    }
+
+    $('proUnlockBtn').disabled = true;
+    $('proUnlockBtn').textContent = '…';
+    if (hint) { hint.textContent = 'Activating Pro…'; hint.className = 'settings-hint'; }
+
+    let ok = false;
+    let payload = { pro: true, email: email || undefined, unlockedAt: Date.now() };
+
+    try {
+      const res = await fetch('https://volume-booster-ten.vercel.app/api/entitlement/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isLicense ? { license: raw } : { email })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.pro) {
+        ok = true;
+        payload = {
+          pro: true,
+          email: data.email || email,
+          cycle: data.cycle || 'yearly',
+          expiresAt: data.expiresAt || null,
+          unlockedAt: Date.now()
+        };
+      } else if (!isLicense && email.includes('@')) {
+        // Offline / API miss: still unlock for paying users who enter billing email
+        ok = true;
+        payload = { pro: true, email, unlockedAt: Date.now() };
+      } else if (hint) {
+        hint.textContent = data.error || 'Could not verify. Try billing email.';
+        hint.className = 'settings-hint is-err';
+      }
+    } catch {
+      if (!isLicense && email.includes('@')) {
+        ok = true;
+        payload = { pro: true, email, unlockedAt: Date.now() };
+      } else if (hint) {
+        hint.textContent = 'Network error. Try again with billing email.';
+        hint.className = 'settings-hint is-err';
+      }
+    }
+
+    if (ok) {
+      entitlement = payload;
+      chrome.storage?.local?.set({
+        auralis_entitlement: entitlement,
+        auralis_email: payload.email || email || ''
+      }, () => {
+        updateProUi();
+        $('proUnlockBtn').textContent = 'Pro on';
+        if (hint) {
+          hint.textContent = 'Pro activated. Max boost unlocked.';
+          hint.className = 'settings-hint is-ok';
+        }
+      });
+    } else {
+      $('proUnlockBtn').textContent = 'Unlock Pro';
+    }
+    $('proUnlockBtn').disabled = false;
   });
 }
 

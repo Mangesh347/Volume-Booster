@@ -481,6 +481,19 @@ body.ck-body {
   margin: 16px 0;
   word-break: break-all;
 }
+.ck-license {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #111;
+  color: #eee;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow: auto;
+}
 
 @media (max-width: 900px) {
   .ck-shell { grid-template-columns: 1fr; }

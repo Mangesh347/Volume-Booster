@@ -1,8 +1,9 @@
 /**
- * POST /api/paypal/capture-order — Auralis Pro
+ * POST /api/paypal/capture-order — Volume Booster Pro
  */
 
 import { quoteUSD, computeExpiresAt } from "../_lib/pricing.js";
+import { signLicense, recordEntitlement } from "../_lib/entitlement.js";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -21,13 +22,17 @@ export default async function handler(req, res) {
     if (!order_id) return res.status(400).json({ error: "order_id required" });
     const quote = quoteUSD(cycle);
     const expiresAt = computeExpiresAt(cycle);
+    const em = String(email).toLowerCase().trim();
 
     if (!clientId || !clientSecret || String(order_id).startsWith("SIM_")) {
+      const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
+      await recordEntitlement({ email: em, cycle: quote.cycle, expiresAt, provider: "simulated", orderId: order_id });
       return res.status(200).json({
         success: true,
-        email: String(email).toLowerCase().trim(),
+        email: em,
         cycle: quote.cycle,
         expiresAt,
+        license,
         product: "auralis",
         mode: "simulated_preview"
       });
@@ -57,11 +62,15 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: cap.message || "PayPal capture failed", details: cap });
     }
 
+    const { license } = signLicense({ email: em, cycle: quote.cycle, expiresAt });
+    await recordEntitlement({ email: em, cycle: quote.cycle, expiresAt, provider: "paypal", orderId: order_id });
+
     return res.status(200).json({
       success: true,
-      email: String(email).toLowerCase().trim(),
+      email: em,
       cycle: quote.cycle,
       expiresAt,
+      license,
       product: "auralis",
       paypal_status: cap.status,
       order_id

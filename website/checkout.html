@@ -166,6 +166,8 @@
     function showSuccess(data) {
       const email = (data.email || "").trim().toLowerCase();
       const emailSafe = escapeHtml(email || "the email you used at checkout");
+      const license = (data.license || "").trim();
+      const licenseSafe = escapeHtml(license);
       const expiresLine = data.expiresAt
         ? `Pro active until <strong>${escapeHtml(new Date(data.expiresAt).toLocaleDateString())}</strong>`
         : `Lifetime Pro on this email`;
@@ -174,23 +176,40 @@
           <div class="ck-success">
             <div class="ck-success-check" aria-hidden="true">✓</div>
             <p class="ck-success-kicker">Payment verified</p>
-            <h1>Open Volume Booster — Pro unlocks with your email</h1>
+            <h1>Activate Pro in the extension</h1>
             <p class="ck-success-lead">
-              Open the Chrome extension and enter <strong>${emailSafe}</strong> (the email you paid with).
-              Volume Booster unlocks Pro for that account — no license key to paste.
+              Payment succeeded. Pro is <strong>not automatic</strong> until you unlock once in Chrome.
             </p>
             <ol class="ck-success-steps">
-              <li>Open the <strong>Volume Booster</strong> extension popup</li>
-              <li>Paste <strong>${emailSafe}</strong> in the Pro email field</li>
-              <li>Pro unlocks Max boost and full scenes</li>
+              <li>Open the <strong>Volume Booster</strong> extension</li>
+              <li>Click the <strong>gear</strong> (bottom right)</li>
+              <li>Paste <strong>${emailSafe}</strong> in Pro billing email</li>
+              <li>Click <strong>Unlock</strong></li>
             </ol>
+            ${license ? `
+            <p class="ck-success-meta">Or paste this license in the same field:</p>
+            <pre class="ck-license" id="licenseBox">${licenseSafe}</pre>
+            <button type="button" class="ck-btn ck-btn-dark" id="copyLicense">Copy license</button>
+            ` : ""}
             <p class="ck-success-meta">${expiresLine}</p>
             <p class="ck-success-home"><a href="index.html">Back to home</a></p>
           </div>
         </div>`;
       try {
         if (email) localStorage.setItem("auralis_billing_email", email);
+        if (license) localStorage.setItem("auralis_license", license);
       } catch (_) {}
+      const copyBtn = document.getElementById("copyLicense");
+      if (copyBtn && license) {
+        copyBtn.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(license);
+            copyBtn.textContent = "Copied";
+          } catch (_) {
+            copyBtn.textContent = "Select & copy above";
+          }
+        });
+      }
     }
 
     async function loadConfig() {

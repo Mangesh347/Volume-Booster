@@ -1,6 +1,6 @@
 /** Auralis Pro plan helpers */
 (function (global) {
-  const SITE_URL = 'https://volumebooster.vercel.app'; // update after Vercel deploy
+  const SITE_URL = 'https://volume-booster-ten.vercel.app';
   const FREE_MAX_VOLUME = 200;
   const PRO_SCENES = new Set(['bass', 'vocal', 'cinema', 'lofi', 'slowreverb']);
 

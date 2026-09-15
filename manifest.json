@@ -4,7 +4,7 @@
   "version": "2.5.0",
   "description": "Clear soft volume boost. One scalloped dial, Safe Boost, Clarity, Bass, Space & Surround.",
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": ["<all_urls>", "https://volume-booster-ten.vercel.app/*"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
