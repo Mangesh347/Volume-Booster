@@ -182,15 +182,22 @@ async function refreshSession() {
     'vb_guest_id',
     'auralis_entitlement',
     'auralis_email',
+    'vb_billing_email',
     'vb_listen_local',
     'vb_profile_country'
   ]);
   session = res.vb_supabase_session || null;
   guestId = res.vb_guest_id || null;
-  entitlement = res.auralis_entitlement || { pro: false };
+  entitlement = normalizeEntitlement(res.auralis_entitlement || { pro: false });
+  if (!entitlement.email) {
+    entitlement.email = (res.vb_billing_email || res.auralis_email || '').toLowerCase();
+  }
   localListenSec = Number(res.vb_listen_local) || 0;
   if (res.vb_profile_country && $('countrySelect')) {
     $('countrySelect').value = res.vb_profile_country;
+  }
+  if ($('billingEmailInput') && (res.vb_billing_email || entitlement.email)) {
+    $('billingEmailInput').value = res.vb_billing_email || entitlement.email;
   }
   return session;
 }
@@ -573,111 +580,228 @@ async function emailAuth(mode) {
   }
 }
 
+/** Normalize server/local entitlement; expire → Free when deadline passed. */
+function normalizeEntitlement(raw) {
+  const email = String(raw?.email || '').trim().toLowerCase();
+  const expiresAt = raw?.expiresAt || raw?.expires_at || null;
+  const cycle = raw?.cycle || null;
+  const wantsPro = !!(raw?.pro || raw?.plan === 'pro');
+  const stillActive =
+    wantsPro &&
+    (!expiresAt || new Date(expiresAt).getTime() > Date.now());
+  if (stillActive) {
+    return {
+      pro: true,
+      plan: 'pro',
+      email,
+      cycle,
+      expiresAt,
+      unlockedAt: raw?.unlockedAt || Date.now(),
+      verifiedAt: Date.now()
+    };
+  }
+  return {
+    pro: false,
+    plan: 'free',
+    email,
+    cycle: null,
+    expiresAt: null,
+    unlockedAt: raw?.unlockedAt || null,
+    verifiedAt: Date.now()
+  };
+}
+
+function pickBetterAccess(a, b) {
+  const A = normalizeEntitlement(a);
+  const B = normalizeEntitlement(b);
+  if (A.pro && !B.pro) return A;
+  if (B.pro && !A.pro) return B;
+  if (A.pro && B.pro) {
+    const ae = A.expiresAt ? new Date(A.expiresAt).getTime() : Infinity;
+    const be = B.expiresAt ? new Date(B.expiresAt).getTime() : Infinity;
+    return be >= ae ? B : A;
+  }
+  return B.email ? B : A;
+}
+
+async function fetchAccessByEmail(em) {
+  const res = await fetch(SITE + '/api/entitlement/activate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: em })
+  });
+  const data = await res.json().catch(() => ({}));
+  return normalizeEntitlement({
+    pro: !!(res.ok && data.pro),
+    plan: data.plan || (data.pro ? 'pro' : 'free'),
+    email: data.email || em,
+    cycle: data.cycle || null,
+    expiresAt: data.expiresAt || null
+  });
+}
+
+async function fetchAccessBySession() {
+  if (!hasSession()) return null;
+  const res = await fetch(SITE + '/api/user/access', {
+    headers: { Authorization: 'Bearer ' + session.access_token }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error || 'Session expired — sign in again.');
+    err.status = res.status;
+    throw err;
+  }
+  return normalizeEntitlement({
+    pro: !!data.pro,
+    plan: data.plan || (data.pro ? 'pro' : 'free'),
+    email: data.email || session.email,
+    cycle: data.cycle || null,
+    expiresAt: data.expiresAt || null
+  });
+}
+
+/**
+ * Source of truth: Supabase via website APIs.
+ * Checks Google session + every stored billing email; Pro only if deadline still valid.
+ * If Supabase says Pro and popup was Free, upgrades immediately.
+ */
 async function syncAccess(quiet) {
-  // Prefer signed-in Google session → server expires Pro automatically when deadline passes
+  const stored = await storageGet([
+    'auralis_email',
+    'vb_billing_email',
+    'auralis_entitlement'
+  ]);
+  const emails = [];
+  const pushEmail = (e) => {
+    const em = String(e || '').trim().toLowerCase();
+    if (em.includes('@') && !emails.includes(em)) emails.push(em);
+  };
+  pushEmail(session?.email);
+  pushEmail(stored.auralis_email);
+  pushEmail(stored.vb_billing_email);
+  pushEmail(entitlement?.email);
+  pushEmail($('billingEmailInput')?.value);
+
+  let best = normalizeEntitlement(stored.auralis_entitlement || entitlement || { pro: false });
+  let verifiedOnline = false;
+  let lastErr = null;
+
   if (hasSession()) {
     try {
-      const res = await fetch(SITE + '/api/user/access', {
-        headers: { Authorization: 'Bearer ' + session.access_token }
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (!quiet && $('profileHint')) {
-          $('profileHint').textContent = data.error || 'Session expired — sign in again.';
-          $('profileHint').className = 'settings-hint is-err';
-        }
-        return;
+      const sessionAccess = await fetchAccessBySession();
+      if (sessionAccess) {
+        best = pickBetterAccess(best, sessionAccess);
+        verifiedOnline = true;
+        pushEmail(sessionAccess.email);
       }
-      entitlement = {
-        pro: !!data.pro,
-        email: data.email || session.email,
-        cycle: data.cycle || null,
-        expiresAt: data.expiresAt || null,
-        unlockedAt: Date.now(),
-        plan: data.plan || (data.pro ? 'pro' : 'free')
-      };
-      await storageSet({
-        auralis_entitlement: entitlement,
-        auralis_email: entitlement.email || '',
-        vb_billing_email: entitlement.email || ''
-      });
-      updatePlanBadge();
-      return;
-    } catch {
-      /* offline: fall through to cached / email check */
+    } catch (err) {
+      lastErr = err;
+      if (!quiet) {
+        const hint = $('planVerifyHint') || $('profileHint');
+        if (hint && err.status === 401) {
+          hint.textContent = err.message || 'Session expired — sign in again.';
+          hint.className = 'settings-hint is-err';
+        }
+      }
     }
   }
 
-  // Fallback: look up Pro by billing email (after payment, before/without session)
-  const stored = await storageGet(['auralis_email', 'vb_billing_email', 'auralis_entitlement']);
-  const em = (session?.email || stored.auralis_email || stored.vb_billing_email || '').toLowerCase();
-  if (!em.includes('@')) {
-    if (stored.auralis_entitlement && !isPro()) {
-      entitlement = { pro: false, plan: 'free' };
-      await storageSet({ auralis_entitlement: entitlement });
-      updatePlanBadge();
-    }
-    return;
-  }
-  try {
-    const res = await fetch(SITE + '/api/entitlement/activate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: em })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.pro) {
-      entitlement = {
-        pro: true,
-        email: data.email || em,
-        cycle: data.cycle || null,
-        expiresAt: data.expiresAt || null,
-        unlockedAt: Date.now(),
-        plan: 'pro'
-      };
-    } else {
-      entitlement = {
-        pro: false,
-        email: em,
-        cycle: null,
-        expiresAt: null,
-        plan: 'free'
-      };
-    }
-    await storageSet({ auralis_entitlement: entitlement, auralis_email: em });
-    updatePlanBadge();
-  } catch {
-    /* keep cache; still enforce local expiry */
-    if (entitlement?.pro && entitlement.expiresAt && new Date(entitlement.expiresAt).getTime() <= Date.now()) {
-      entitlement = { pro: false, plan: 'free', email: em };
-      await storageSet({ auralis_entitlement: entitlement });
-      updatePlanBadge();
+  for (const em of emails) {
+    try {
+      const access = await fetchAccessByEmail(em);
+      best = pickBetterAccess(best, access);
+      verifiedOnline = true;
+    } catch (err) {
+      lastErr = err;
     }
   }
+
+  if (!verifiedOnline) {
+    best = normalizeEntitlement(best);
+  }
+
+  entitlement = best;
+  const keepBilling = String(stored.vb_billing_email || '').trim().toLowerCase();
+  const billing =
+    (entitlement.pro && entitlement.email) ||
+    keepBilling ||
+    entitlement.email ||
+    emails[0] ||
+    '';
+  await storageSet({
+    auralis_entitlement: entitlement,
+    auralis_email: entitlement.email || billing || stored.auralis_email || '',
+    vb_billing_email: billing
+  });
+
+  if ($('billingEmailInput') && billing && !$('billingEmailInput').value) {
+    $('billingEmailInput').value = billing;
+  }
+
+  updatePlanBadge();
+  updatePlanStatusUI(verifiedOnline, lastErr);
+  if (typeof renderUI === 'function') renderUI();
+}
+
+function planLabel() {
+  if (isPro()) {
+    return entitlement.expiresAt
+      ? 'Pro · until ' + new Date(entitlement.expiresAt).toLocaleDateString()
+      : 'Pro · Lifetime';
+  }
+  return isGuest() ? 'Guest · Free' : 'Free';
 }
 
 function updatePlanBadge() {
   const badge = $('planBadge');
   const pro = isPro();
-  if (badge) {
-    if (isGuest()) badge.textContent = 'Guest';
-    else if (pro) {
-      badge.textContent = entitlement.expiresAt
-        ? 'Pro · until ' + new Date(entitlement.expiresAt).toLocaleDateString()
-        : 'Pro · Lifetime';
-    } else badge.textContent = 'Free';
-  }
-  if ($('statPlan')) {
-    $('statPlan').textContent = isGuest() ? 'Guest' : (pro ? 'Pro' : 'Free');
-  }
+  if (badge) badge.textContent = planLabel();
+  if ($('statPlan')) $('statPlan').textContent = pro ? 'Pro' : (isGuest() ? 'Guest' : 'Free');
   const link = $('proCheckoutLink');
-  if (link) {
-    link.style.display = pro ? 'none' : '';
-    const email = session?.email || entitlement?.email || '';
+  const linkGuest = $('proCheckoutLinkGuest');
+  [link, linkGuest].forEach((el) => {
+    if (!el) return;
+    el.style.display = pro ? 'none' : '';
+    const email = entitlement?.email || session?.email || $('billingEmailInput')?.value || '';
     if (email && globalThis.AuralisPlan) {
-      link.href = AuralisPlan.checkoutUrl('yearly', email);
+      el.href = AuralisPlan.checkoutUrl('yearly', email);
     }
-  }
+  });
+}
+
+function updatePlanStatusUI(verifiedOnline, lastErr) {
+  const em = entitlement?.email || session?.email || '';
+  const statusText = isPro()
+    ? (em
+      ? 'Verified Pro for ' + em + (entitlement.expiresAt
+        ? ' · ends ' + new Date(entitlement.expiresAt).toLocaleDateString()
+        : ' · lifetime')
+      : planLabel())
+    : (em
+      ? 'Free for ' + em + ' (no active Pro / expired)'
+      : 'Free — enter the billing email from checkout to verify');
+
+  ['planStatusLine', 'planStatusLineSignedIn'].forEach((id) => {
+    if ($(id)) $(id).textContent = statusText;
+  });
+
+  const hintText = !verifiedOnline && lastErr
+    ? 'Offline — using cached plan; expiry still enforced locally.'
+    : (verifiedOnline
+      ? (isPro()
+        ? 'Synced from Supabase. Auto Free when the deadline passes.'
+        : 'Synced from Supabase — Free plan.')
+      : '');
+  const hintClass = 'settings-hint' + (verifiedOnline && isPro() ? ' is-ok' : (!verifiedOnline && lastErr ? '' : (verifiedOnline ? '' : '')));
+
+  ['planVerifyHint', 'planVerifyHintSignedIn'].forEach((id) => {
+    const hint = $(id);
+    if (!hint) return;
+    if (hintText) {
+      hint.textContent = hintText;
+      hint.className = hintClass;
+    }
+  });
 }
 
 /* ── Tabs ───────────────────────────────────────────────────── */
@@ -1196,16 +1320,43 @@ function bindProfile() {
   $('signOutBtn')?.addEventListener('click', async () => {
     stopHeartbeat();
     session = null;
-    entitlement = { pro: false };
-    await storageSet({
-      vb_supabase_session: null,
-      auralis_entitlement: { pro: false }
-    });
+    await storageSet({ vb_supabase_session: null });
     await refreshSession();
     if (!guestId) await ensureGuestId();
+    // Keep billing email — re-verify Pro from Supabase (don't wipe paid access)
+    await syncAccess(false);
     updateAuthPanels();
     updatePlanBadge();
     switchTab('boost');
+  });
+
+  async function runManualVerify() {
+    const input = $('billingEmailInput');
+    const typed = (input?.value || '').trim().toLowerCase();
+    if (typed.includes('@')) {
+      await storageSet({ vb_billing_email: typed, auralis_email: typed });
+    }
+    const hints = [$('planVerifyHint'), $('planVerifyHintSignedIn')].filter(Boolean);
+    hints.forEach((h) => {
+      h.textContent = 'Checking Supabase…';
+      h.className = 'settings-hint';
+    });
+    await syncAccess(false);
+    hints.forEach((h) => {
+      if (!h.textContent) {
+        h.textContent = isPro() ? 'Pro verified.' : 'Free — no active Pro for this email.';
+        h.className = 'settings-hint' + (isPro() ? ' is-ok' : '');
+      }
+    });
+  }
+
+  $('verifyPlanBtn')?.addEventListener('click', runManualVerify);
+  $('verifyPlanBtnSignedIn')?.addEventListener('click', runManualVerify);
+  $('billingEmailInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runManualVerify();
+    }
   });
 }
 

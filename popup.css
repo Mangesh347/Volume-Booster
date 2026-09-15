@@ -92,6 +92,24 @@ body { padding: 10px; }
   border: 1px dashed var(--line); margin: 8px 0 10px; word-break: break-all;
 }
 .guest-note { text-align: center; }
+.plan-verify {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  text-align: left;
+}
+.plan-status {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+.plan-verify .field { margin-bottom: 8px; }
+.plan-verify .btn-primary { width: 100%; }
+.plan-verify .link-pro { display: inline-block; margin-top: 8px; }
+#planStatusLineSignedIn { margin: 8px 0 4px; font-size: 12px; color: var(--muted); }
+#verifyPlanBtnSignedIn { margin-bottom: 4px; }
 
 /* Header */
 .header {

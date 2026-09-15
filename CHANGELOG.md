@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.9 — 2026-09-15
+
+- Extension verifies Pro/Free against Supabase by billing email on every popup open.
+- Honors plan deadline → auto Free when expired (popup + background every 30 min).
+- If Supabase says Pro but popup was Free, forces Pro; You tab has Verify Pro / Free.
+
 ## 2.9.8 — 2026-09-15
 
 - Success page no longer opens `chrome-extension://…` (caused `ERR_BLOCKED_BY_CLIENT`). Pings extension + tells user to click the toolbar icon.

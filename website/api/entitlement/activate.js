@@ -55,13 +55,16 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(403).json({
-      error: "No active Pro for this email. Pay on the website, then sign in with the same Google account.",
+    return res.status(200).json({
+      success: true,
       pro: false,
       plan: "free",
-      email: em
+      email: em,
+      cycle: null,
+      expiresAt: null,
+      reason: "no_active_pro"
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message || String(err), plan: "free" });
+    return res.status(500).json({ error: err.message || String(err), plan: "free", pro: false });
   }
 }

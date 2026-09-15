@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "SoundBlast — Volume Booster",
-  "version": "2.9.7",
-  "description": "Pay → verify → success page → Pro auto on billing email.",
-  "permissions": ["activeTab", "scripting", "storage", "tabs", "identity"],
+  "version": "2.9.9",
+  "description": "Pay → verify → Pro on billing email. Auto Free when plan expires.",
+  "permissions": ["activeTab", "scripting", "storage", "tabs", "identity", "alarms"],
   "host_permissions": [
     "<all_urls>",
     "https://volume-booster-ten.vercel.app/*",
