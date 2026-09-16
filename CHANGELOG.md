@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.11.9 — 2026-09-16
+
+- Fixed Chrome’s autoplay warning by creating and resuming XCoda’s AudioContext only after a real page gesture.
+- Excluded the Google account chooser from audio-script injection.
+- Kept playback buffering and tab/window/desktop recovery from v2.11.8 without starting audio on non-media pages.
+
 ## 2.11.8 — 2026-09-16
 
 - Simplified the Boost, Pro, and You tab copy so each area presents one clear benefit or next action.

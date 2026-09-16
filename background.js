@@ -520,7 +520,12 @@ function updateBadge(tabId, volume) {
 }
 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-  if (info.status !== 'complete' || !tab.url || tab.url.startsWith('chrome://')) return;
+  if (
+    info.status !== 'complete' ||
+    !tab.url ||
+    tab.url.startsWith('chrome://') ||
+    tab.url.startsWith('https://accounts.google.com/')
+  ) return;
   const domain = getDomain(tab.url);
   if (!domain) return;
 

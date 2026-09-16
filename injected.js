@@ -41,6 +41,8 @@
 
   function keepEngineRunning() {
     if (!sharedCtx || sharedCtx.state === 'closed' || sharedCtx.state === 'running') return;
+    const activated = !!navigator.userActivation?.hasBeenActive;
+    if (sharedCtx.state === 'suspended' && !activated) return;
     sharedCtx.resume().catch(() => {});
   }
 
@@ -206,7 +208,7 @@
 
   const origPlay = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () {
-    if (!sharedCtx) {
+    if (!sharedCtx && navigator.userActivation?.hasBeenActive) {
       try {
         const ctx = createEngineContext();
         ensureGraph(ctx);
@@ -227,7 +229,10 @@
   // Keep active audio smooth when Chrome/Windows changes tab, window, or desktop
   // priority. The DSP curve is untouched; only context continuity is reinforced.
   document.addEventListener('visibilitychange', keepEngineRunning, { passive: true });
-  document.addEventListener('playing', keepEngineRunning, { capture: true, passive: true });
+  document.addEventListener('playing', (event) => {
+    keepEngineRunning();
+    if (event.target instanceof HTMLMediaElement) hookEl(event.target);
+  }, { capture: true, passive: true });
   window.addEventListener('focus', keepEngineRunning, { passive: true });
   window.addEventListener('blur', keepEngineRunning, { passive: true });
   window.addEventListener('pageshow', keepEngineRunning, { passive: true });
@@ -276,8 +281,15 @@
 
   function command(action, value) {
     if (!ALLOWED_ACTIONS.has(action)) return { ok: false, reason: 'invalid_action' };
-    if (action === 'resume' && sharedCtx) {
-      sharedCtx.resume().catch(() => {});
+    if (action === 'resume') {
+      if (!sharedCtx && navigator.userActivation?.hasBeenActive) {
+        try {
+          const ctx = createEngineContext();
+          ensureGraph(ctx);
+          scanAll();
+        } catch (_) {}
+      }
+      keepEngineRunning();
       return { ok: true };
     }
     if (!sharedCtx || !masterGain) return { ok: false, reason: 'not_ready' };
@@ -468,13 +480,4 @@
     }
   }
 
-  setTimeout(() => {
-    if (!sharedCtx) {
-      try {
-        const ctx = createEngineContext();
-        ensureGraph(ctx);
-        scanAll();
-      } catch (_) {}
-    }
-  }, 0);
 })();

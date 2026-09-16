@@ -28,6 +28,10 @@ check(
   "Isolated audio engine must load before its controller"
 );
 check(
+  manifest.content_scripts?.[0]?.exclude_matches?.includes("https://accounts.google.com/*"),
+  "Google account chooser must exclude the audio engine"
+);
+check(
   JSON.stringify(manifest.externally_connectable || {}).includes(
     "https://volume-booster-ten.vercel.app/*"
   ),
@@ -68,6 +72,11 @@ check(!checkout.includes("expiresAt="), "Checkout puts entitlement details in a 
 check(!read("content.js").includes("__sb_cmd"), "Spoofable page event bridge remains");
 check(!injected.includes("__sb_cmd"), "Audio engine still accepts page DOM events");
 check(injected.includes("latencyHint: 'playback'"), "Audio engine lacks playback-stable buffering");
+check(
+  injected.includes("if (!sharedCtx && navigator.userActivation?.hasBeenActive)") &&
+  !injected.includes("setTimeout(() => {\n    if (!sharedCtx)"),
+  "AudioContext can start before a user gesture"
+);
 check(
   injected.includes("'statechange', keepEngineRunning") &&
   injected.includes("'visibilitychange', keepEngineRunning") &&

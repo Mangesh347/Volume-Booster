@@ -1,3 +1,21 @@
+QA REPORT: XCoda AudioContext autoplay correction — v2.11.9
+
+BLOCKERS: none in source
+
+MAJOR: none
+
+MINOR:
+- Reload the unpacked extension before testing because previously injected v2.11.8 scripts remain in already-open tabs.
+
+PASSED:
+- AudioContext creation is gated behind Chrome user activation and no longer runs automatically at document start.
+- Suspended contexts are not resumed before user activation; interrupted active contexts can still recover.
+- Google Account Chooser is excluded from declarative and background audio injection.
+- Playback-stable buffering and tab/window/desktop recovery remain enabled after activation.
+- The v2.11.0 DSP curve and all customer-facing v2.11.8 polish remain unchanged.
+
+---
+
 QA REPORT: XCoda customer copy, larger logo, and audio continuity — v2.11.8
 
 BLOCKERS: none in source
