@@ -1,7 +1,7 @@
 QA REPORT: XCoda live payment guard
 
 BLOCKERS:
-- No PayPal client ID/secret or Razorpay live key/secret is present locally, and this workspace is not linked to a Vercel project. Real checkout cannot be activated or charged until live credentials are added to the Vercel Production environment and redeployed.
+- Full capture/refund validation still requires the owner to intentionally complete and then refund one low-value real purchase per provider.
 
 MAJOR: none in source
 
@@ -15,6 +15,10 @@ PASSED:
 - Missing/test credentials fail closed before an order can be created, verified, or granted Pro.
 - Root and `website/` payment APIs remain synchronized.
 - JavaScript syntax, 78 security assertions, and IDE diagnostics passed.
+- Deployed `/api/config` reports PayPal live mode and a Razorpay `rzp_live_` public key.
+- PayPal returned a genuine live order with an approval URL on `www.paypal.com`.
+- Razorpay returned a genuine live `order_…` reference and live public key.
+- Verification orders were not approved or charged.
 
 ---
 
