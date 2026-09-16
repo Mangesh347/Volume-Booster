@@ -256,11 +256,11 @@ function applyAuthCapabilities(auth) {
   const provider = capabilities.googleEnabled ? 'Google' : 'email';
   if ($('guestSignInNote')) {
     $('guestSignInNote').textContent =
-      `Boost free up to 300%. Sign in with ${provider} when you’re ready for XCoda Pro.`;
+      `Enjoy up to 300% free. Sign in with ${provider} anytime to unlock more.`;
   }
   if ($('proAuthNote')) {
     $('proAuthNote').textContent =
-      `Sign in with ${provider} first, then pay. Pro unlocks only after PayPal or Razorpay confirms payment.`;
+      `Sign in with ${provider}, choose a plan, and enjoy Pro right away.`;
   }
   if (
     capabilities.available === false &&
@@ -487,7 +487,7 @@ async function startGoogleSignIn() {
       });
     });
 
-    setAuthMsg('Complete Google in the window — reopen XCoda if this popup closes.', '');
+    setAuthMsg('Choose your Google account to continue.', '');
 
     const deadline = Date.now() + 120_000;
     let authErr = null;
@@ -538,7 +538,7 @@ async function startGoogleSignIn() {
 
     if (!hasSession()) {
       throw new Error(
-        'Google sign-in did not finish. Complete the Google window, then reopen XCoda. If this continues, contact support.'
+        'Sign-in did not finish. Try again or contact support.'
       );
     }
 
@@ -557,8 +557,8 @@ async function startGoogleSignIn() {
       /* ok */
     }
 
-    setAuthMsg('Signed in with Google.', 'ok');
-    setAuthMsg('Signed in with Google.', 'ok', 'authMsgBoards');
+    setAuthMsg('You’re in. Let’s make some noise.', 'ok');
+    setAuthMsg('You’re in. Let’s make some noise.', 'ok', 'authMsgBoards');
     await afterSignIn();
   } catch (err) {
     const msg = err.message || 'Google sign-in failed';
@@ -598,7 +598,7 @@ async function emailAuth(mode) {
   const password = $('authPassword')?.value || '';
   const name = ($('authName')?.value || '').trim();
   if (!email.includes('@') || password.length < 6) {
-    setAuthMsg('Use a valid email and password (6+ characters).', 'err');
+    setAuthMsg('Enter a valid email and at least 6 characters.', 'err');
     return;
   }
   setAuthMsg(mode === 'signup' ? 'Creating account…' : 'Signing in…', '');
@@ -625,11 +625,11 @@ async function emailAuth(mode) {
         { name }
       );
     } else {
-      setAuthMsg('Check your email to confirm, then log in.', 'ok');
+      setAuthMsg('Check your inbox, then come back to sign in.', 'ok');
       return;
     }
     if (name) await storageSet({ vb_pending_display_name: name });
-    setAuthMsg('Welcome in.', 'ok');
+    setAuthMsg('You’re in. Let’s make some noise.', 'ok');
     await afterSignIn();
   } catch (err) {
     setAuthMsg(err.message || 'Auth failed', 'err');
@@ -768,9 +768,9 @@ function startContinuousPlanVerification() {
     const hint = $('planVerifyHintSignedIn');
     if (!hint || !hasSession()) return;
     if (document.body.dataset.planConnection === 'offline') {
-      hint.textContent = 'Offline · reconnecting';
+      hint.textContent = 'You’re offline · we’ll keep trying';
     } else if (lastPlanCheckAt) {
-      hint.textContent = 'Plan current';
+      hint.textContent = 'All set';
     }
   }, 1000);
   startRealtimePlanUpdates();
@@ -780,21 +780,19 @@ window.addEventListener('unload', stopRealtimePlanUpdates);
 
 function planLabel() {
   if (isPro()) {
-    return entitlement.expiresAt
-      ? 'Pro · until ' + new Date(entitlement.expiresAt).toLocaleDateString()
-      : 'Pro · Lifetime';
+    return 'Pro';
   }
-  return isGuest() ? 'Guest · Free' : 'Free';
+  return 'Free';
 }
 
 function accessCycleLabel(cycle) {
   const labels = {
-    monthly: 'Monthly access',
-    yearly: 'Yearly access',
-    stacked: 'Stacked access',
+    monthly: 'Monthly',
+    yearly: 'Yearly',
+    stacked: 'Monthly + Yearly',
     lifetime: 'Lifetime'
   };
-  return labels[cycle] || 'Pro access';
+  return labels[cycle] || 'Pro';
 }
 
 function formatAccessDeadline(value, includeTime = true) {
@@ -825,15 +823,14 @@ function updatePlanBadge() {
     if (pro) {
       const bits = [];
       if (entitlement.cycle) bits.push(accessCycleLabel(entitlement.cycle));
-      if (entitlement.email) bits.push(entitlement.email);
       if (entitlement.expiresAt) {
-        bits.push('ends ' + formatAccessDeadline(entitlement.expiresAt));
+        bits.push('until ' + formatAccessDeadline(entitlement.expiresAt, false));
       } else if (entitlement.cycle === 'lifetime' || !entitlement.expiresAt) {
-        bits.push('Lifetime');
+        if (!bits.includes('Lifetime')) bits.push('Lifetime');
       }
-      meta.textContent = bits.filter(Boolean).join(' · ') || 'Active';
+      meta.textContent = bits.filter(Boolean).join(' · ') || 'Ready';
     } else {
-      meta.textContent = 'View plans / Upgrade';
+      meta.textContent = 'See Pro';
     }
   }
   if (strip) {
@@ -862,14 +859,14 @@ function renderProTab() {
         ? 'Through ' + formatAccessDeadline(entitlement.expiresAt)
         : 'Lifetime';
     }
-    if ($('proHeading')) $('proHeading').textContent = 'You’re on Pro';
-    if ($('proLede')) $('proLede').textContent = 'Your 600% boost, Music Ad Block, and premium sound scenes are ready.';
-    if (upgradeBtn) upgradeBtn.textContent = 'Renew / extend plan';
+    if ($('proHeading')) $('proHeading').textContent = 'Pro looks good on you ✦';
+    if ($('proLede')) $('proLede').textContent = '600% boost, every sound, and Music Ad Block are yours.';
+    if (upgradeBtn) upgradeBtn.textContent = 'Keep Pro going';
   } else {
     if (active) active.hidden = true;
     if ($('proHeading')) $('proHeading').textContent = 'XCoda Pro';
     if ($('proLede')) {
-      $('proLede').textContent = 'Boost to 600%, Music Ad Block, and Pro sound scenes.';
+      $('proLede').textContent = 'Turn it up to 600%. Unlock every sound. Skip music ads.';
     }
     if (upgradeBtn) {
       upgradeBtn.textContent = hasSession() ? 'Upgrade to Pro' : 'Sign in to upgrade';
@@ -886,26 +883,25 @@ function requireProOrTab() {
   const hint = $('upgradeHint');
   if (hint) {
     hint.textContent = hasSession()
-      ? 'This feature needs Pro — pick a plan below.'
-      : `Sign in with ${preferredAuthProvider()} on the You tab, then upgrade.`;
+      ? 'Unlock this with Pro.'
+      : `Sign in on You to unlock this.`;
     hint.className = 'settings-hint';
   }
 }
 
 function updatePlanStatusUI(verifiedOnline, lastErr) {
-  const em = entitlement?.email || session?.email || '';
   const statusText = isPro()
-    ? (em ? 'XCoda Pro · ' + em : 'XCoda Pro')
-    : (em ? 'XCoda Free · ' + em : 'XCoda Free');
+    ? 'Pro is active ✦'
+    : 'You’re on Free';
 
   ['planStatusLine', 'planStatusLineSignedIn'].forEach((id) => {
     if ($(id)) $(id).textContent = statusText;
   });
 
   const hintText = !verifiedOnline && lastErr
-    ? 'Showing your most recently available plan.'
+    ? 'You’re offline. Your last plan is still here.'
     : (verifiedOnline
-      ? (isPro() ? 'Your Pro controls are ready.' : 'You’re using XCoda Free.')
+      ? (isPro() ? 'Everything is ready.' : 'Turn it up to 300%.')
       : '');
   const hintClass = 'settings-hint' + (verifiedOnline && isPro() ? ' is-ok' : '');
 
@@ -952,7 +948,7 @@ function bindTabs() {
     const hint = $('upgradeHint');
     if (!hasSession()) {
       if (hint) {
-        hint.textContent = `Sign in with ${preferredAuthProvider()} first, then upgrade.`;
+        hint.textContent = 'Sign in on You to unlock Pro.';
         hint.className = 'settings-hint is-err';
       }
       switchTab('profile');
@@ -1107,7 +1103,7 @@ function bindBoost() {
       this.checked = false;
       state.adblock = false;
       if (hint) {
-        hint.textContent = 'Music Ad Block is Pro — open the Pro tab to upgrade.';
+        hint.textContent = 'Unlock Music Ad Block with Pro.';
         hint.className = 'feat-hint is-err';
       }
       requireProOrTab();
@@ -1119,7 +1115,7 @@ function bindBoost() {
     scheduleSaveSite(true);
     if (hint) {
       hint.textContent = state.adblock
-        ? 'On — blocks ads while music/video plays on supported sites.'
+        ? 'Music Ad Block is on.'
         : '';
       hint.className = state.adblock ? 'feat-hint is-ok' : 'feat-hint';
     }
@@ -1172,7 +1168,7 @@ function setSlider(el, val, min, max) {
 function updateVolDisplay(v) {
   const n = Math.round(Number(v) || 0);
   if ($('volValue')) $('volValue').textContent = n + '%';
-  if ($('volLabel')) $('volLabel').textContent = n >= 300 ? 'HIGH' : 'BOOST';
+  if ($('volLabel')) $('volLabel').textContent = n >= 300 ? 'MAX' : 'BOOST';
   if ($('volHint')) {
     $('volHint').textContent =
       n < 80 ? 'Quiet' : n <= 120 ? 'Normal' : n < 250 ? 'Boost' : 'Loud';

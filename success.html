@@ -12,10 +12,10 @@
 <body class="ck-body ck-success-page">
   <header class="ck-success-header">
     <a class="ck-success-brand" href="/" aria-label="XCoda home">
-      <img src="icons/icon48.png" width="36" height="36" alt="" />
+      <img src="icons/icon48.png" width="44" height="44" alt="" />
       <span>XCoda</span>
     </a>
-    <span class="ck-success-secure">Payment confirmation</span>
+    <span class="ck-success-secure">You’re in ✦</span>
   </header>
 
   <main class="ck-success-shell">
@@ -24,9 +24,9 @@
       <div class="ck-success-check" aria-hidden="true">
         <span class="ck-success-loader">•••</span>
       </div>
-      <p class="ck-success-kicker" id="kicker">Confirming your purchase</p>
-      <h1 id="title" tabindex="-1">Getting XCoda Pro ready</h1>
-      <p class="ck-success-lead" id="lead">This usually takes only a moment.</p>
+      <p class="ck-success-kicker" id="kicker">One quick moment</p>
+      <h1 id="title" tabindex="-1">Unlocking your Pro sound</h1>
+      <p class="ck-success-lead" id="lead">We’re getting everything ready.</p>
 
       <dl class="ck-success-receipt" id="receipt" hidden>
         <div><dt>Account</dt><dd id="receiptEmail">—</dd></div>
@@ -36,20 +36,20 @@
       </dl>
 
       <div class="ck-success-next" id="nextSteps" hidden>
-        <p class="ck-success-next-title">Start boosting in three quick steps</p>
+        <p class="ck-success-next-title">Turn up your first Pro tab</p>
         <ol>
-          <li><span>1</span><div><strong>Pin XCoda</strong><small>Keep the waveform icon visible in your Chrome toolbar.</small></div></li>
-          <li><span>2</span><div><strong>Open any media tab</strong><small>Try a video, song, call, or lecture.</small></div></li>
-          <li><span>3</span><div><strong>Turn up the boost</strong><small>Open XCoda and choose your Pro level or sound scene.</small></div></li>
+          <li><span>1</span><div><strong>Open a tab</strong><small>Play something you love.</small></div></li>
+          <li><span>2</span><div><strong>Open XCoda</strong><small>Click the waveform in your toolbar.</small></div></li>
+          <li><span>3</span><div><strong>Feel the difference</strong><small>Turn it up and pick your sound.</small></div></li>
         </ol>
       </div>
 
       <div class="ck-success-actions" id="actions" hidden>
         <button type="button" class="ck-btn ck-btn-dark ck-success-cta" id="pingExt">
-          Activate XCoda Pro
+          Open the Pro experience
         </button>
-        <p class="ck-success-action-hint" id="actionHint">Then click the XCoda waveform icon in your toolbar.</p>
-        <a class="ck-success-home" href="/">Back to XCoda home</a>
+        <p class="ck-success-action-hint" id="actionHint">Then open XCoda from your toolbar.</p>
+        <a class="ck-success-home" href="/">Back home</a>
       </div>
     </section>
 
@@ -97,7 +97,7 @@
       const planNames = {
         monthly: "XCoda Pro Monthly",
         yearly: "XCoda Pro Yearly",
-        stacked: "XCoda Pro · Stacked access",
+        stacked: "XCoda Pro · Monthly + Yearly",
         lifetime: "XCoda Pro Lifetime"
       };
       const accessText = data.expiresAt
@@ -113,10 +113,10 @@
       const box = document.getElementById("box");
       box.setAttribute("aria-busy", "false");
       box.querySelector(".ck-success-check").textContent = "✓";
-      document.getElementById("kicker").textContent = "Payment confirmed";
-      document.getElementById("title").textContent = "Welcome to XCoda Pro";
+      document.getElementById("kicker").textContent = "Payment complete ✦";
+      document.getElementById("title").textContent = "Your sound just levelled up";
       document.getElementById("lead").textContent =
-        "Your premium boost controls are ready. Open XCoda and make your first Pro-powered tab sound better.";
+        "XCoda Pro is yours. Open a tab and hear the difference.";
       document.getElementById("receiptEmail").textContent = accountEmail;
       document.getElementById("receiptPlan").textContent =
         planNames[data.cycle] || "XCoda Pro";
@@ -133,10 +133,10 @@
       document.getElementById("pingExt").addEventListener("click", () => {
         pingExtension();
         const btn = document.getElementById("pingExt");
-        btn.textContent = "XCoda Pro is ready";
+        btn.textContent = "Pro is ready ✦";
         btn.classList.add("is-ready");
         document.getElementById("actionHint").textContent =
-          "Now click the XCoda waveform icon in your Chrome toolbar.";
+          "Now open XCoda from your Chrome toolbar.";
       });
       document.getElementById("title").focus();
 

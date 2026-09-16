@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.11.8 — 2026-09-16
+
+- Simplified the Boost, Pro, and You tab copy so each area presents one clear benefit or next action.
+- Replaced technical plan, sign-in, sync, and payment wording with concise customer-facing messages while preserving all security behavior.
+- Refined the landing page, pricing, checkout, and payment confirmation voice around outcomes and positive moments.
+- Added warmer Pro-active feedback and shorter loading, success, offline, and error states.
+- Made the existing XCoda waveform logo larger across the popup, website, checkout, and confirmation surfaces.
+- Prevented audio breakup during tab, Chrome window, and Windows desktop switches with a playback-stable audio context and automatic context recovery; the v2.11.0 DSP curve remains unchanged.
+
 ## 2.11.7 — 2026-09-16
 
 - Added a verified-Pro popup treatment that preserves the existing layout while elevating the header, plan strip, dial, waveform, active tab, and Pro card.

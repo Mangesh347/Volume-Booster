@@ -53,6 +53,7 @@ const background = read("background.js");
 const popup = read("popup.js");
 const success = read("success.html");
 const checkout = read("checkout.html");
+const injected = read("injected.js");
 check(background.includes("chrome.storage.session"), "Session data is not using storage.session");
 check(background.includes("sender.origin !== SITE"), "External payment message origin is not checked");
 check(!background.includes("verifyEmailAgainstServer"), "Email-only entitlement lookup remains");
@@ -65,7 +66,14 @@ check(
 );
 check(!checkout.includes("expiresAt="), "Checkout puts entitlement details in a URL");
 check(!read("content.js").includes("__sb_cmd"), "Spoofable page event bridge remains");
-check(!read("injected.js").includes("__sb_cmd"), "Audio engine still accepts page DOM events");
+check(!injected.includes("__sb_cmd"), "Audio engine still accepts page DOM events");
+check(injected.includes("latencyHint: 'playback'"), "Audio engine lacks playback-stable buffering");
+check(
+  injected.includes("'statechange', keepEngineRunning") &&
+  injected.includes("'visibilitychange', keepEngineRunning") &&
+  injected.includes("'blur', keepEngineRunning"),
+  "Audio engine lacks background-switch recovery"
+);
 
 const sql = read("supabase/xcoda_security.sql");
 check(sql.includes("xcoda_finalize_payment"), "Atomic payment finalizer is missing");
@@ -86,8 +94,8 @@ check(
   "Lifetime backfill is not restricted to payment providers"
 );
 check(read("supabase/vb_schema.sql").includes("'stacked'"), "Profile schema rejects stacked access");
-check(popup.includes("Stacked access"), "Popup does not label stacked access");
-check(success.includes('stacked: "XCoda Pro · Stacked access"'), "Success page does not label stacked access");
+check(popup.includes("Monthly + Yearly"), "Popup does not label mixed plan access");
+check(success.includes('stacked: "XCoda Pro · Monthly + Yearly"'), "Success page does not label mixed plan access");
 
 const pricing = read("api/_lib/pricing.js");
 const entitlementLib = read("api/_lib/entitlement.js");

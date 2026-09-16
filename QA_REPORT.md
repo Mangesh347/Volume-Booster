@@ -1,3 +1,22 @@
+QA REPORT: XCoda customer copy, larger logo, and audio continuity — v2.11.8
+
+BLOCKERS: none in source
+
+MAJOR: none
+
+MINOR:
+- Real Windows desktop switching must be confirmed after reloading the unpacked extension because browser automation cannot reproduce Chrome extension audio scheduling across OS desktops.
+
+PASSED:
+- Boost, Pro, and You tabs now use concise customer-facing benefits and actions without exposing plan-sync or payment implementation details.
+- Landing page, pricing, checkout, and confirmation copies are simpler and root/website deployment mirrors match exactly.
+- Existing waveform logo renders at larger intrinsic and CSS sizes across popup, website, checkout, product summary, and confirmation header.
+- Audio engine now requests playback-stable buffering and resumes on context state changes, tab visibility changes, page restore, focus, blur, and media playback.
+- XCoda v2.11.0 gain curve, filters, compressor values, plan enforcement, and payment verification behavior are unchanged.
+- JavaScript syntax, 68 security assertions, renewal tests, Lifetime repair tests, mirror checks, and IDE diagnostics passed.
+
+---
+
 QA REPORT: XCoda website, checkout, and payment confirmation — v2.11.6
 
 BLOCKERS: none

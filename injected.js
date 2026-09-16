@@ -31,6 +31,19 @@
   const hooked = new WeakSet();
   const srcMap = new WeakMap();
 
+  function createEngineContext() {
+    try {
+      return new NAT_CTX({ latencyHint: 'playback' });
+    } catch (_) {
+      return new NAT_CTX();
+    }
+  }
+
+  function keepEngineRunning() {
+    if (!sharedCtx || sharedCtx.state === 'closed' || sharedCtx.state === 'running') return;
+    sharedCtx.resume().catch(() => {});
+  }
+
   // Very gentle soft-clip — clear boost without crunch
   function softClipCurve(amount) {
     const N = 2048;
@@ -47,6 +60,7 @@
   function ensureGraph(ctx) {
     if (sharedCtx === ctx && masterGain) return;
     sharedCtx = ctx;
+    sharedCtx.addEventListener?.('statechange', keepEngineRunning);
 
     masterGain = ctx.createGain();
     masterGain.gain.value = 1;
@@ -194,7 +208,7 @@
   HTMLMediaElement.prototype.play = function () {
     if (!sharedCtx) {
       try {
-        const ctx = new OrigCtx();
+        const ctx = createEngineContext();
         ensureGraph(ctx);
       } catch (_) {}
     }
@@ -209,6 +223,14 @@
     childList: true,
     subtree: true
   });
+
+  // Keep active audio smooth when Chrome/Windows changes tab, window, or desktop
+  // priority. The DSP curve is untouched; only context continuity is reinforced.
+  document.addEventListener('visibilitychange', keepEngineRunning, { passive: true });
+  document.addEventListener('playing', keepEngineRunning, { capture: true, passive: true });
+  window.addEventListener('focus', keepEngineRunning, { passive: true });
+  window.addEventListener('blur', keepEngineRunning, { passive: true });
+  window.addEventListener('pageshow', keepEngineRunning, { passive: true });
 
   function applyVolume(g) {
     if (!sharedCtx || !masterGain) return;
@@ -449,7 +471,7 @@
   setTimeout(() => {
     if (!sharedCtx) {
       try {
-        const ctx = new OrigCtx();
+        const ctx = createEngineContext();
         ensureGraph(ctx);
         scanAll();
       } catch (_) {}

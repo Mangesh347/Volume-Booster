@@ -68,9 +68,9 @@ body.ck-body {
   font-weight: 800;
 }
 .ck-brand-logo-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   display: block;
   flex-shrink: 0;
 }
@@ -165,8 +165,8 @@ body.ck-body {
   align-items: flex-start;
 }
 .ck-product-ico {
-  width: 44px; height: 44px;
-  border-radius: 10px;
+  width: 52px; height: 52px;
+  border-radius: 12px;
   background: var(--white);
   color: var(--ink);
   display: grid;
@@ -416,7 +416,7 @@ body.ck-success-page {
   font-size: 16px;
   font-weight: 750;
 }
-.ck-success-brand img { border-radius: 10px; }
+.ck-success-brand img { width: 44px; height: 44px; border-radius: 12px; }
 .ck-success-secure { color: #8f8f8f; font-size: 12px; letter-spacing: .03em; }
 .ck-success-shell {
   position: relative;
