@@ -20,10 +20,36 @@ export function isProduction() {
   return process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
 }
 
+export function paypalMode() {
+  return String(
+    process.env.PAYPAL_MODE || (isProduction() ? "live" : "sandbox")
+  ).toLowerCase();
+}
+
+export function productionPaymentConfigError(provider) {
+  if (!isProduction()) return null;
+  if (provider === "paypal") {
+    if (
+      paypalMode() !== "live" ||
+      !process.env.PAYPAL_CLIENT_ID ||
+      !process.env.PAYPAL_CLIENT_SECRET
+    ) return "paypal_live_credentials_required";
+    return null;
+  }
+  if (provider === "razorpay") {
+    if (
+      !String(process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_live_") ||
+      !process.env.RAZORPAY_KEY_SECRET
+    ) return "razorpay_live_credentials_required";
+    return null;
+  }
+  return "invalid_provider";
+}
+
 export function simulatedPaymentsAllowed(provider) {
   if (isProduction()) return false;
   if (String(process.env.ALLOW_SIMULATED_PAYMENTS || "").toLowerCase() !== "true") return false;
-  if (provider === "paypal") return String(process.env.PAYPAL_MODE || "sandbox").toLowerCase() !== "live";
+  if (provider === "paypal") return paypalMode() !== "live";
   if (provider === "razorpay") return !String(process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_live");
   return false;
 }

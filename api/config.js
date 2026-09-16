@@ -6,6 +6,12 @@ import { secureApi } from "./_lib/http.js";
 let authCache = null;
 let authCacheAt = 0;
 
+function paypalMode() {
+  const production =
+    process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  return String(process.env.PAYPAL_MODE || (production ? "live" : "sandbox")).toLowerCase();
+}
+
 async function getAuthCapabilities() {
   if (authCache && Date.now() - authCacheAt < 60000) return authCache;
   const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
@@ -44,7 +50,7 @@ export default async function handler(req, res) {
   res.status(200).json({
     product: "volume_booster",
     paypal_client_id: process.env.PAYPAL_CLIENT_ID || "",
-    paypal_mode: (process.env.PAYPAL_MODE || "sandbox").toLowerCase(),
+    paypal_mode: paypalMode(),
     razorpay_key_id: process.env.RAZORPAY_KEY_ID || "",
     base_currency: "USD",
     gst_rate: 0.18,

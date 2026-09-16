@@ -6,6 +6,7 @@ import crypto from "crypto";
 import {
   finalizePaymentIntent,
   getPaymentIntent,
+  productionPaymentConfigError,
   simulatedPaymentsAllowed
 } from "../_lib/payment-intents.js";
 import { secureApi, safeApiError } from "../_lib/http.js";
@@ -23,6 +24,12 @@ export default async function handler(req, res) {
 
   const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
   const keyId = process.env.RAZORPAY_KEY_ID || "";
+  if (productionPaymentConfigError("razorpay")) {
+    return res.status(503).json({
+      error: "Razorpay live checkout is temporarily unavailable",
+      success: false
+    });
+  }
 
   try {
     const {

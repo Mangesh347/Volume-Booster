@@ -5,12 +5,17 @@
 
 ## Deploy (Vercel)
 1. Import folder `soundblast/website` as a Vercel project.
-2. Set env vars (same pattern as [Screen Time Tracker](https://screen-time-tracker-seven.vercel.app/)):
-   - `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` / `PAYPAL_MODE` (`sandbox` or `live`)
-   - `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`
+2. Set production environment variables:
+   - `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` from the PayPal **Live** app
+   - `PAYPAL_MODE=live`
+   - `PAYPAL_MERCHANT_ID` and/or `PAYPAL_RECEIVER_EMAIL` for recipient verification
+   - `RAZORPAY_KEY_ID` beginning with `rzp_live_` / matching `RAZORPAY_KEY_SECRET`
+   - `ALLOW_SIMULATED_PAYMENTS=false`
    - `INR_USD_RATE` (default `95.12`)
    - `SITE_URL` (the deployed XCoda website URL)
-3. Deploy. Without keys, checkout runs in **simulated_preview** mode for UI testing.
+3. Deploy and make one low-value real purchase with each enabled provider. Production fails closed when live credentials are absent or a Razorpay test key is configured.
+
+Simulated checkout is available only outside production when explicitly enabled. Never add test credentials to Vercel's Production environment.
 
 ## Pricing
 - Monthly: $1.99

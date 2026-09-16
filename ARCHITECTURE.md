@@ -15,6 +15,13 @@ MediaElement → Gain → SoftClip → BassShelf → ClarityPeak → Presence �
 - `injected.js` is not web-accessible and accepts only bounded, allowlisted calls through a frozen engine object.
 - Host-page scripts cannot dispatch commands into the DSP.
 
+## Permissions (v2.11.10)
+- `<all_urls>` is required for the single purpose of applying local audio controls across arbitrary user-selected webpages.
+- Declarative content scripts load at `document_start`; duplicate `chrome.scripting` reinjection and the `scripting` permission were removed.
+- Tabs API messaging/query/create calls remain, but the sensitive `tabs` permission is unnecessary because required host access provides matching webpage URLs.
+- `storage` saves local audio preferences and temporary session state; `identity` handles optional Google sign-in; `alarms` refreshes and expires plan state.
+- Audio, page content, and browsing history are never transmitted to XCoda services.
+
 ## UI philosophy
 - Volume boost is the hero control; Free 300% / Pro 600%
 - Material Design dark: near-black surfaces + white ink only
@@ -38,6 +45,7 @@ MediaElement → Gain → SoftClip → BassShelf → ClarityPeak → Presence �
 
 ## Payment integrity (v2.11.7)
 - Create-order routes calculate prices server-side and write immutable `vb_payment_intents`.
+- Production is live-only: PayPal requires `PAYPAL_MODE=live` plus credentials, Razorpay requires an `rzp_live_` key plus its secret, and simulated payments are always rejected.
 - PayPal requires one completed final capture, exact amount/currency/order metadata, optional configured payee identity, and a deterministic provider idempotency key.
 - Razorpay verifies the timing-safe callback signature and independently fetches both payment and order; both must agree on captured/paid state, amount, currency, receipt, and plan metadata.
 - Capture/verify routes pass the verified provider ID, amount, currency, and status into `xcoda_finalize_payment`.
@@ -60,7 +68,7 @@ MediaElement → Gain → SoftClip → BassShelf → ClarityPeak → Presence �
 ## Required deployment order
 1. Run `supabase/xcoda_security.sql`.
 2. Deploy the root site or synchronized `website/` build with the documented environment variables.
-3. Reload the unpacked/store extension at v2.11.7.
+3. Reload the unpacked/store extension at v2.11.10.
 
 ## Clean-room note
 FxSound informed functional regions only. No assets, copy, or layout cloning.

@@ -5,6 +5,8 @@
 import {
   finalizePaymentIntent,
   getPaymentIntent,
+  paypalMode,
+  productionPaymentConfigError,
   simulatedPaymentsAllowed
 } from "../_lib/payment-intents.js";
 import { secureApi, safeApiError } from "../_lib/http.js";
@@ -28,8 +30,14 @@ export default async function handler(req, res) {
 
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-  const mode = (process.env.PAYPAL_MODE || "sandbox").toLowerCase();
+  const mode = paypalMode();
   const apiBase = mode === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+  if (productionPaymentConfigError("paypal")) {
+    return res.status(503).json({
+      error: "PayPal live checkout is temporarily unavailable",
+      success: false
+    });
+  }
 
   try {
     const { order_id } = req.body || {};

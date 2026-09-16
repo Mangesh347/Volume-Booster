@@ -1,3 +1,44 @@
+QA REPORT: XCoda live payment guard
+
+BLOCKERS:
+- No PayPal client ID/secret or Razorpay live key/secret is present locally, and this workspace is not linked to a Vercel project. Real checkout cannot be activated or charged until live credentials are added to the Vercel Production environment and redeployed.
+
+MAJOR: none in source
+
+MINOR: none
+
+PASSED:
+- Local PayPal mode changed to live and simulated payments disabled.
+- Production PayPal endpoints require live mode plus configured credentials.
+- Production Razorpay endpoints require an `rzp_live_` key plus matching secret.
+- Production simulation remains impossible even if an environment flag is accidentally enabled.
+- Missing/test credentials fail closed before an order can be created, verified, or granted Pro.
+- Root and `website/` payment APIs remain synchronized.
+- JavaScript syntax, 78 security assertions, and IDE diagnostics passed.
+
+---
+
+QA REPORT: XCoda Chrome Web Store permission/privacy pass — v2.11.10
+
+BLOCKERS:
+- Final fresh-install, real Google login, audio, Pro, and Music Ad Block checks require loading the finished ZIP in Chrome before submission.
+
+MAJOR: none in static/package review
+
+MINOR: none
+
+PASSED:
+- Confirmed `<all_urls>` remains required for arbitrary-site audio and is documented for that purpose only.
+- Removed the sole duplicate `chrome.scripting.executeScript` path and the `scripting` permission; declarative all-frame content scripts retain audio coverage.
+- Confirmed Tabs API calls remain available without the sensitive `tabs` permission; matching webpage URL access is already supplied by the retained host permission.
+- Confirmed `storage`, `identity`, and `alarms` are actively used and retained.
+- Network scan found only XCoda backend/Supabase account and plan traffic in extension runtime code; no analytics SDK or audio/browsing upload path was found.
+- Privacy policy now matches temporary session auth, local audio/site preferences, optional profile data, payment records, no analytics, and no advertising/tracking use.
+- Store summary, detailed description, permission justifications, privacy declarations, homepage, support, and privacy URLs are ready in `STORE_LISTING.md`.
+- JavaScript syntax, 77 security assertions, renewal tests, Lifetime repair tests, website privacy mirror, and IDE diagnostics passed.
+
+---
+
 QA REPORT: XCoda AudioContext autoplay correction — v2.11.9
 
 BLOCKERS: none in source

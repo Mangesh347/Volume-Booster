@@ -1,5 +1,19 @@
 # Changelog
 
+## Live payment readiness — 2026-09-16
+
+- Switched local/default production PayPal mode from sandbox to live and disabled simulated payments.
+- Production now fails closed unless PayPal uses live mode with configured credentials and Razorpay uses an `rzp_live_` key with its secret.
+- Test, missing, or simulated credentials can no longer create or verify production payments or grant Pro.
+- Kept sandbox simulation available only when explicitly enabled outside production.
+
+## 2.11.10 — 2026-09-16
+
+- Removed the redundant `scripting` permission and duplicate programmatic reinjection; declarative content scripts continue to provide the same cross-site audio behavior.
+- Removed the redundant sensitive `tabs` permission while retaining the Tabs API calls supported by the required host access.
+- Updated the manifest summary and added a ready-to-paste Chrome Web Store listing with exact permission and privacy declarations.
+- Replaced the outdated analytics claim with an implementation-accurate privacy policy covering local settings, temporary session auth, optional profile data, payments, retention, and service providers.
+
 ## 2.11.9 — 2026-09-16
 
 - Fixed Chrome’s autoplay warning by creating and resuming XCoda’s AudioContext only after a real page gesture.

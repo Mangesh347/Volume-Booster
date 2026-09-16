@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "XCoda — Clear Audio Booster",
-  "version": "2.11.9",
-  "description": "Boost Chrome audio to 300% free. Pro unlocks 600%, premium sound scenes, and Music Ad Block.",
-  "permissions": ["scripting", "storage", "tabs", "identity", "alarms"],
+  "version": "2.11.10",
+  "description": "Boost Chrome audio up to 300% with XCoda. Pro adds 600% boost, sound scenes, and Music Ad Block.",
+  "permissions": ["storage", "identity", "alarms"],
   "host_permissions": [
     "<all_urls>"
   ],

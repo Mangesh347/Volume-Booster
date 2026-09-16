@@ -538,18 +538,11 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
     const safe = clampStateForPlan(saved, ent);
     updateBadge(tabId, safe.volume);
 
-    chrome.scripting.executeScript(
-      {
-        target: { tabId, allFrames: true },
-        files: ['music-sites.js', 'vb-adblock.js', 'injected.js', 'content.js']
-      },
-      () => {
-        if (chrome.runtime.lastError) return;
-        [800, 2500].forEach((delay) => {
-          setTimeout(() => applyToTab(tabId, safe), delay);
-        });
-      }
-    );
+    // Declarative content scripts already load at document_start in all frames.
+    // Reapply saved state after the page settles; no programmatic injection needed.
+    [800, 2500].forEach((delay) => {
+      setTimeout(() => applyToTab(tabId, safe), delay);
+    });
   });
 });
 
