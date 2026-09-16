@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.11.11 — 2026-09-16
+
+- Completely removed retired leaderboard and listening-usage code, APIs, storage keys, styles, and legacy schema.
+- Removed country/location handling from the popup and profile API; profile responses now use an explicit non-location field allowlist.
+- Added an idempotent Supabase cleanup migration to delete historic listening statistics and the retired country column.
+- Removed the unused guest identifier and two dead popup helpers.
+- Fixed the visible profile bio so saved text is shown correctly.
+- Fixed sound scenes being overwritten by retired hidden DSP controls during restore and power-on.
+- Fixed Remember-site Off so it persists for the current tab without resetting the active boost badge.
+- Fixed power-off ad-block shutdown and connected fast, ad-detected skip/mute behavior without affecting normal media.
+- Removed obsolete auth messages, payment-pending storage, unused plan helpers, and orphaned popup styles.
+- Added automated checks proving the store ZIP runtime contains no leaderboard, country, listening-statistics, usage, or guest-ID feature.
+
 ## Live payment readiness — 2026-09-16
 
 - Switched local/default production PayPal mode from sandbox to live and disabled simulated payments.

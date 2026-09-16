@@ -22,6 +22,11 @@ MediaElement → Gain → SoftClip → BassShelf → ClarityPeak → Presence �
 - `storage` saves local audio preferences and temporary session state; `identity` handles optional Google sign-in; `alarms` refreshes and expires plan state.
 - Audio, page content, and browsing history are never transmitted to XCoda services.
 
+## Privacy cleanup (v2.11.11)
+- XCoda has no leaderboard, listening-usage collection, country/region field, geolocation path, or persistent guest identifier.
+- Profile writes accept only display name, avatar URL, and bio; profile reads explicitly select non-location account and plan fields.
+- `supabase/remove_location_leaderboard.sql` deletes historic listening-statistics storage and the retired country column.
+
 ## UI philosophy
 - Volume boost is the hero control; Free 300% / Pro 600%
 - Material Design dark: near-black surfaces + white ink only

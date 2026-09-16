@@ -408,3 +408,7 @@ REVOKE ALL ON FUNCTION public.xcoda_take_rate_limit(TEXT, INTEGER, INTEGER) FROM
 REVOKE ALL ON FUNCTION public.xcoda_take_rate_limit(TEXT, INTEGER, INTEGER) FROM anon;
 REVOKE ALL ON FUNCTION public.xcoda_take_rate_limit(TEXT, INTEGER, INTEGER) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.xcoda_take_rate_limit(TEXT, INTEGER, INTEGER) TO service_role;
+
+-- Retired privacy-sensitive features: no location field or listening leaderboard storage.
+DROP TABLE IF EXISTS public.vb_listen_stats CASCADE;
+ALTER TABLE IF EXISTS public.vb_profiles DROP COLUMN IF EXISTS country;

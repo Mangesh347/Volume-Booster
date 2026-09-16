@@ -30,20 +30,24 @@ export default async function handler(req, res) {
       if (body.display_name != null) patch.display_name = String(body.display_name).slice(0, 40);
       if (body.avatar_url != null) patch.avatar_url = String(body.avatar_url).slice(0, 500);
       if (body.bio != null) patch.bio = String(body.bio).slice(0, 160);
-      if (body.country != null) patch.country = String(body.country).toUpperCase().slice(0, 4);
 
-      const upd = await sbRest(`vb_profiles?user_id=eq.${encodeURIComponent(user.id)}`, {
+      const upd = await sbRest(
+        `vb_profiles?user_id=eq.${encodeURIComponent(user.id)}` +
+          `&select=email,user_id,display_name,avatar_url,bio,plan,cycle,expires_at,updated_at`,
+        {
         method: "PATCH",
         prefer: "return=representation",
         body: patch
-      });
+        }
+      );
       if (!upd.ok) return res.status(502).json({ error: "Profile update failed." });
       const profile = Array.isArray(upd.data) ? upd.data[0] : upd.data;
       return res.status(200).json({ success: true, profile });
     }
 
     const prof = await sbRest(
-      `vb_profiles?user_id=eq.${encodeURIComponent(user.id)}&select=*&limit=1`
+      `vb_profiles?user_id=eq.${encodeURIComponent(user.id)}` +
+        `&select=email,user_id,display_name,avatar_url,bio,plan,cycle,expires_at,updated_at&limit=1`
     );
     const profile = prof.ok && Array.isArray(prof.data) ? prof.data[0] : null;
 

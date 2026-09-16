@@ -6,21 +6,12 @@ const EXPIRY_ALARM = 'vb_plan_expires';
 const SESSION_KEYS = [
   'vb_supabase_session',
   'auralis_entitlement',
-  'vb_billing_email',
   'auralis_email',
   'vb_google_auth_pending',
   'vb_google_auth_error',
   'vb_google_auth_ok_at',
   'vb_pending_display_name',
-  'vb_pending_avatar',
-  'vb_profile_country',
-  'vb_guest_id',
-  'vb_guest_created_at',
-  'vb_listen_local',
-  'vb_site_usage',
-  'vb_active_boost_host',
-  'vb_active_boost_at',
-  'xcoda_payment_pending'
+  'vb_pending_avatar'
 ];
 
 try {
@@ -136,19 +127,6 @@ async function verifySessionAgainstServer(accessToken) {
     cycle: data.cycle,
     expiresAt: data.expiresAt
   });
-}
-
-function pickBetter(a, b) {
-  const A = normalizeEntitlement(a);
-  const B = normalizeEntitlement(b);
-  if (A.pro && !B.pro) return A;
-  if (B.pro && !A.pro) return B;
-  if (A.pro && B.pro) {
-    const ae = A.expiresAt ? new Date(A.expiresAt).getTime() : Infinity;
-    const be = B.expiresAt ? new Date(B.expiresAt).getTime() : Infinity;
-    return be >= ae ? B : A;
-  }
-  return B.email ? B : A;
 }
 
 async function loadApiConfig() {
@@ -455,8 +433,7 @@ async function revalidateStoredPlanAsync() {
       }
       await sessionSet({
         vb_supabase_session: session,
-        auralis_email: session.email || '',
-        xcoda_payment_pending: false
+        auralis_email: session.email || ''
       });
     } catch (err) {
       if (err?.code === 'STALE_SESSION') {
@@ -495,7 +472,6 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   }
   sessionGet(['vb_supabase_session']).then(async ({ vb_supabase_session: session }) => {
     if (!session?.access_token) {
-      await sessionSet({ xcoda_payment_pending: true });
       sendResponse?.({ ok: true, pro: false, pendingSignIn: true });
       return;
     }
@@ -547,7 +523,7 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
 });
 
 const FREE_MAX_VOLUME = 300;
-const PRO_SCENES = new Set(['bass', 'vocal', 'cinema', 'lofi', 'slowreverb']);
+const PRO_SCENES = new Set(['bass', 'vocal', 'cinema', 'lofi']);
 
 function clampStateForPlan(s, ent) {
   const pro = !!(ent && ent.pro);
@@ -568,14 +544,6 @@ function applyToTab(tabId, s) {
       { action: 'setPower', value: powered },
       { action: 'setVolume', value: powered ? (safe.volume || 100) / 100 : 1 },
       { action: 'setMode', value: safe.mode || 'softclear' },
-      { action: 'setClarity', value: (safe.clarity != null ? safe.clarity : 35) / 100 },
-      { action: 'setBassBoost', value: (safe.bassBoost != null ? safe.bassBoost : 20) / 100 },
-      { action: 'setSpace', value: (safe.space || 0) / 100 },
-      { action: 'setWiden', value: (safe.widen || 0) / 100 },
-      { action: 'setFrequency', value: safe.bassFreq || 200 },
-      { action: 'setReverb', value: (safe.reverb || 0) / 100 },
-      { action: 'setPitch', value: safe.pitch || 1.0 },
-      { action: 'setPan', value: (safe.pan || 0) / 100 },
       { action: 'setAdblock', value: !!safe.adblock }
     ];
     msgs.forEach((m) => {
@@ -641,10 +609,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.action === 'clearSite') {
     const domain = getDomain(msg.url);
+    const tabId = Number(msg.tabId);
+    const state = msg.state && typeof msg.state === 'object'
+      ? { ...msg.state, autoApply: false }
+      : null;
     if (domain) chrome.storage.local.remove(`site_${domain}`);
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) updateBadge(tabs[0].id, 100);
-    });
+    if (Number.isInteger(tabId) && state) {
+      chrome.storage.local.set({ [`tab_${tabId}`]: state });
+    }
     return false;
   }
 
@@ -652,22 +624,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     revalidateStoredPlanAsync()
       .then((entitlement) => sendResponse?.({ ok: true, entitlement }))
       .catch((err) => sendResponse?.({ ok: false, error: err.message }));
-    return true;
-  }
-
-  if (msg.action === 'GET_AUTH_STATE') {
-    sessionGet([
-      'vb_supabase_session',
-      'auralis_entitlement',
-      'xcoda_payment_pending'
-    ]).then((state) => {
-      sendResponse?.({
-        ok: true,
-        session: state.vb_supabase_session || null,
-        entitlement: normalizeEntitlement(state.auralis_entitlement || { pro: false }),
-        paymentPending: !!state.xcoda_payment_pending
-      });
-    });
     return true;
   }
 
@@ -713,8 +669,4 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  if (msg.action === 'GET_REDIRECT_URI') {
-    sendResponse({ ok: true, redirectUri: chrome.identity.getRedirectURL() });
-    return false;
-  }
 });

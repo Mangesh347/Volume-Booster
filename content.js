@@ -38,14 +38,6 @@
         const map = {
           setVolume: 'setVolume',
           setMode: 'setMode',
-          setFrequency: 'setFreq',
-          setReverb: 'setReverb',
-          setPitch: 'setPitch',
-          setClarity: 'setClarity',
-          setBassBoost: 'setBassBoost',
-          setSpace: 'setSpace',
-          setWiden: 'setWiden',
-          setPan: 'setPan',
           setPower: 'setPower',
           setAdblock: 'setAdblock'
         };
@@ -73,19 +65,14 @@
     }
   }
 
-  function mediaPlaying() {
-    const nodes = document.querySelectorAll('video, audio');
-    for (const el of nodes) {
-      if (!el.paused && !el.ended && el.readyState > 2) return true;
-    }
-    return false;
-  }
-
   function applyAdblock(on) {
     adblockWanted = !!on;
-    const active = adblockWanted && hostOk() && mediaPlaying();
-    if (globalThis.VBAdblock) return VBAdblock.apply(active);
-    return { ok: false, reason: 'missing_module' };
+    const active = adblockWanted && hostOk();
+    const engine = cmd('adTick', active);
+    const styles = globalThis.VBAdblock
+      ? VBAdblock.apply(active)
+      : { ok: false, reason: 'missing_module' };
+    return { active, engine, styles };
   }
 
   ['click', 'keydown', 'touchstart', 'scroll'].forEach((ev) =>
@@ -103,5 +90,5 @@
     } catch (_) {
       clearInterval(tickId);
     }
-  }, 15000);
+  }, 2000);
 })();

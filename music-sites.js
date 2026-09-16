@@ -1,4 +1,4 @@
-/** Music / audio sites the extension tracks for Boards (Screen Time–style). */
+/** Supported media-site detection and friendly display names. */
 (function (global) {
   const SITES = [
     { host: 'youtube.com', name: 'YouTube', match: /(^|\.)youtube\.com$|(^|\.)youtu\.be$/ },
@@ -44,11 +44,6 @@
     return !!resolve(host);
   }
 
-  function logoUrl(host) {
-    const h = normalizeHost(host) || 'example.com';
-    return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(h) + '&sz=64';
-  }
-
   function displayName(host) {
     const r = resolve(host);
     return r ? r.name : normalizeHost(host);
@@ -59,7 +54,6 @@
     normalizeHost,
     resolve,
     isMusicHost,
-    logoUrl,
     displayName
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

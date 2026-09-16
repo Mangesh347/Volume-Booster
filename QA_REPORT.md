@@ -1,3 +1,30 @@
+QA REPORT: XCoda feature/runtime privacy audit — v2.11.11
+
+BLOCKERS:
+- Existing Supabase projects must run `supabase/remove_location_leaderboard.sql` once to physically delete historic country/listening columns and rows.
+
+MAJOR: none in extension runtime
+
+MINOR: none
+
+PASSED:
+- Final runtime search contains no country/location field, leaderboard, listening statistics, usage heartbeat, per-site usage log, or guest identifier.
+- Retired leaderboard and usage APIs and legacy schema were deleted.
+- Profile API accepts only display name, avatar URL, and bio updates and explicitly selects non-location response fields.
+- Every visible popup control was traced to a handler: power, volume, four sound modes, Music Ad Block, remember-site setting, tabs, pricing, upgrade, Google/email auth, profile edit, and sign-out.
+- Removed unsupported hidden `slowreverb` scene and three unreferenced runtime helpers.
+- Removed retired hidden DSP actions that were overwriting Bass, Voice, and Movie scene tuning.
+- Remember-site Off now writes current-tab `autoApply: false`, removes only the per-site rule, and keeps the active badge.
+- Power Off now dispatches Music Ad Block shutdown; ad detection runs every two seconds and only skips/mutes when an ad marker exists.
+- Removed obsolete auth messages, payment-pending state, unused plan helpers, favicon helper, and orphaned CSS.
+- Fixed saved profile bio visibility.
+- Browser QA exercised 12 visible controls/states: volume changed to 250%, remember-site toggled off, Free-to-Pro gating opened the Pro panel, You panel opened, and Google sign-in remained visible.
+- Browser console errors/warnings: 0.
+- JavaScript syntax, 107 security assertions, renewal, Lifetime repair, mirrors, and IDE diagnostics passed.
+- Final 15-file ZIP passed CRC/integrity checks and a banned-feature scan with zero findings.
+
+---
+
 QA REPORT: XCoda live payment guard
 
 BLOCKERS:

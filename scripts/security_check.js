@@ -15,6 +15,7 @@ const manifest = JSON.parse(read("manifest.json"));
 JSON.parse(read("vercel.json"));
 JSON.parse(read("website/vercel.json"));
 check(manifest.manifest_version === 3, "Manifest must remain MV3");
+check(manifest.version === "2.11.11", "Manifest version is not the privacy-clean release");
 check(manifest.description.length <= 132, "Manifest description exceeds 132 characters");
 check(manifest.host_permissions?.includes("<all_urls>"), "Cross-site audio host access is missing");
 check(
@@ -67,6 +68,47 @@ check(background.includes("sender.origin !== SITE"), "External payment message o
 check(!background.includes("verifyEmailAgainstServer"), "Email-only entitlement lookup remains");
 check(!background.includes("exchange(tokens.id_token, null)"), "Nonce-free Google retry remains");
 check(!background.includes("chrome.scripting"), "Duplicate programmatic content injection remains");
+const extensionRuntime = [
+  "manifest.json", "background.js", "popup.js", "popup.html", "popup.css",
+  "content.js", "injected.js", "plan.js", "realtime.js", "music-sites.js",
+  "vb-adblock.js"
+].map(read).join("\n").toLowerCase();
+for (const retired of [
+  "leaderboard", "countryselect", "vb_profile_country", "vb_listen_local",
+  "vb_site_usage", "listen_seconds", "vb_guest_id", "slowreverb",
+  "vb_billing_email", "xcoda_payment_pending", "get_auth_state", "get_redirect_uri"
+]) {
+  check(!extensionRuntime.includes(retired), `Retired runtime feature remains: ${retired}`);
+}
+for (const retiredAction of [
+  "setClarity", "setBassBoost", "setSpace", "setWiden",
+  "setFrequency", "setReverb", "setPitch", "setPan"
+]) {
+  check(!extensionRuntime.includes(retiredAction), `Hidden DSP action remains: ${retiredAction}`);
+}
+check(
+  !popup.includes("state.clarity") &&
+  popup.includes("action !== 'setAdblock'") &&
+  popup.includes("state: { ...state, autoApply: false }"),
+  "Popup state restoration/power-off consistency is incomplete"
+);
+const content = read("content.js");
+check(
+  content.includes("cmd('adTick', active)") &&
+  !content.includes("mediaPlaying()") &&
+  content.includes("}, 2000);"),
+  "Music Ad Block is not applied immediately and continuously"
+);
+check(
+  injected.includes("if (adOn && adDom)") &&
+  !injected.includes("if (adOn || adDom)"),
+  "Music Ad Block can affect normal media"
+);
+check(
+  background.includes("[`tab_${tabId}`]: state") &&
+  !background.includes("updateBadge(tabs[0].id, 100)"),
+  "Remember-site Off does not preserve current-tab state"
+);
 check(!popup.includes("fetchAccessByEmail"), "Popup can still enumerate access by email");
 check(
   success.includes('type: "XCODA_PAYMENT_VERIFIED"') &&
@@ -97,6 +139,11 @@ check(
 );
 
 const sql = read("supabase/xcoda_security.sql");
+check(
+  sql.includes("DROP TABLE IF EXISTS public.vb_listen_stats") &&
+  sql.includes("DROP COLUMN IF EXISTS country"),
+  "Database leaderboard/location cleanup is missing"
+);
 check(sql.includes("xcoda_finalize_payment"), "Atomic payment finalizer is missing");
 check(sql.includes("xcoda_take_rate_limit"), "Persistent API rate limiter is missing");
 check(sql.includes("xcoda_read_own_profile"), "Realtime profile RLS policy is missing");
@@ -156,6 +203,13 @@ check(paypalCapture.includes("captures.length !== 1"), "PayPal exact capture cou
 const razorpayVerify = read("api/razorpay/verify-payment.js");
 check(razorpayVerify.includes("/v1/orders/"), "Razorpay order is not fetched");
 check(razorpayVerify.includes("order.amount_due") && razorpayVerify.includes("payment.captured"), "Razorpay paid/captured invariants are incomplete");
+check(!fs.existsSync(path.join(root, "api/leaderboard.js")), "Retired leaderboard API remains");
+check(
+  !fs.existsSync(path.join(root, "api/usage/heartbeat.js")) &&
+  !fs.existsSync(path.join(root, "api/usage/merge.js")),
+  "Retired usage API remains"
+);
+check(!read("api/user/profile.js").includes("country"), "Profile API still handles location data");
 
 const mirrorPairs = [
   ["vercel.json", "website/vercel.json"],

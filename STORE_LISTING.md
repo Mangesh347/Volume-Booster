@@ -87,6 +87,7 @@ Used to refresh signed-in plan status and return expired fixed-term plans to Fre
 - Website content: not collected or transmitted.
 - Browsing history/activity: not collected or transmitted. Website domains are read locally only to apply saved settings.
 - Audio/media content: not collected or transmitted.
+- Location: not collected or transmitted. XCoda has no country, region, geolocation, or leaderboard feature.
 - Analytics: no Google Analytics or other extension-usage analytics.
 - Advertising/tracking: no sale of personal data and no use of browsing activity or media content for advertising or tracking.
 

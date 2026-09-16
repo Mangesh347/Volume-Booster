@@ -32,7 +32,7 @@ html, body {
 }
 body { padding: 10px; }
 
-.field, .select, .area {
+.field, .area {
   width: 100%;
   padding: 9px 11px;
   border-radius: 10px;
@@ -44,7 +44,7 @@ body { padding: 10px; }
 }
 .area { resize: vertical; min-height: 52px; }
 
-.btn-primary, .btn-ghost, .btn-google, .text-btn, .link-pro {
+.btn-primary, .btn-ghost, .btn-google, .text-btn {
   font: inherit; cursor: pointer; border-radius: var(--pill);
 }
 .btn-primary {
@@ -68,10 +68,6 @@ body { padding: 10px; }
 }
 .text-btn.on { color: var(--black); background: var(--white); border-color: var(--white); }
 
-.auth-or {
-  margin: 12px 0 6px; color: var(--faint); font-size: 11px;
-  text-transform: uppercase; letter-spacing: 0.08em; text-align: center;
-}
 .auth-form { display: flex; flex-direction: column; gap: 6px; text-align: left; }
 .auth-actions { display: flex; gap: 8px; margin-top: 6px; }
 .auth-actions .btn-primary, .auth-actions .btn-ghost { flex: 1; }
@@ -85,31 +81,14 @@ body { padding: 10px; }
 }
 .guest-card h2 { font-size: 15px; margin-bottom: 6px; }
 .guest-card p { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
-.guest-id {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px; font-weight: 700; color: var(--white);
-  padding: 8px; border-radius: 10px; background: var(--raised);
-  border: 1px dashed var(--line); margin: 8px 0 10px; word-break: break-all;
-}
 .guest-note { text-align: center; }
-.plan-verify {
-  margin: 12px 0 16px;
-  padding: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  text-align: left;
-}
 .plan-status {
   font-size: 12px;
   line-height: 1.4;
   color: var(--text);
   margin: 0 0 8px;
 }
-.plan-verify .field { margin-bottom: 8px; }
-.plan-verify .btn-primary { width: 100%; }
-.plan-verify .link-pro { display: inline-block; margin-top: 8px; }
 #planStatusLineSignedIn { margin: 8px 0 4px; font-size: 12px; color: var(--muted); }
-#verifyPlanBtnSignedIn { margin-bottom: 4px; }
 
 /* Header */
 .header {
@@ -148,7 +127,6 @@ body { padding: 10px; }
   border-radius: var(--pill); padding: 8px; font: inherit; font-weight: 650; cursor: pointer;
 }
 .tab.active { background: var(--white); color: var(--black); }
-.tab.tab-locked { opacity: 0.7; }
 .panel[hidden] { display: none !important; }
 
 .hero {
@@ -266,77 +244,11 @@ input[type="range"]::-webkit-slider-thumb {
 .feat-hint.is-err { color: #ffb4b4; }
 .feat-hint.is-ok { color: #b8f0c8; }
 
-/* Boards — Instagram feel */
-.story-rail {
-  display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 12px;
-  scrollbar-width: none;
-}
-.story-rail::-webkit-scrollbar { display: none; }
-.story {
-  flex: 0 0 auto; width: 64px; text-align: center; cursor: default;
-}
-.story-ring {
-  width: 56px; height: 56px; border-radius: 50%;
-  padding: 2px; background: linear-gradient(135deg, #fff 0%, #666 100%);
-  margin: 0 auto 4px;
-}
-.story-ring img {
-  width: 100%; height: 100%; border-radius: 50%; object-fit: contain;
-  background: #111; border: 2px solid var(--bg); padding: 4px;
-}
-.story-name {
-  font-size: 9px; color: var(--muted); overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
-}
-
-.board-scopes { display: flex; gap: 6px; margin-bottom: 10px; }
-.scope {
-  flex: 1; padding: 7px; border-radius: var(--pill); border: 1px solid var(--line);
-  background: var(--raised); color: var(--muted); font: inherit; font-weight: 650; cursor: pointer;
-}
-.scope.active { background: var(--white); color: var(--black); border-color: var(--white); }
-
-.feed { display: flex; flex-direction: column; gap: 8px; }
-.feed-card {
-  display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center;
-  padding: 10px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line);
-}
-.feed-logo {
-  width: 40px; height: 40px; border-radius: 10px; object-fit: contain;
-  background: #fff; padding: 4px; flex-shrink: 0;
-}
-.feed-mid { min-width: 0; }
-.feed-link {
-  display: block; font-weight: 700; font-size: 13px; color: var(--text);
-  text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.feed-link:hover { text-decoration: underline; }
-.feed-link.is-plain { pointer-events: none; }
-.feed-name { font-weight: 700; font-size: 13px; }
-.feed-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.feed-score {
-  font-weight: 700; font-variant-numeric: tabular-nums; font-size: 13px;
-  color: var(--text); white-space: nowrap;
-}
-.board-empty, .board-meta { font-size: 11px; color: var(--muted); margin-top: 10px; text-align: center; }
-
-/* Profile — Instagram feel */
-.ig-header {
-  display: flex; align-items: center; gap: 16px; margin-bottom: 10px;
-}
+/* Profile */
 .ig-avatar {
   width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
   border: 2px solid var(--line); background: var(--raised); flex-shrink: 0;
 }
-.ig-avatar.guest-av {
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; font-weight: 700; margin: 0 auto 4px;
-}
-.ig-stats {
-  flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 4px;
-}
-.ig-stats strong { display: block; font-size: 14px; }
-.ig-stats span { font-size: 10px; color: var(--muted); }
 .ig-name { font-weight: 750; font-size: 14px; }
 .ig-bio { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: pre-wrap; }
 .ig-email { font-size: 11px; color: var(--faint); margin: 4px 0 12px; }
@@ -351,11 +263,6 @@ input[type="range"]::-webkit-slider-thumb {
 .edit-drawer summary::-webkit-details-marker { display: none; }
 .edit-drawer[open] { padding-bottom: 12px; }
 
-.link-pro {
-  display: block; text-align: center; padding: 11px;
-  background: var(--white); color: var(--black); text-decoration: none; font-weight: 700;
-}
-
 .footer {
   display: flex; justify-content: space-between; align-items: center;
   padding: 7px 10px; border-radius: var(--pill);
@@ -367,8 +274,6 @@ input[type="range"]::-webkit-slider-thumb {
 .settings-hint { font-size: 11px; color: var(--muted); margin: 6px 0; }
 .settings-hint.is-ok { color: #b8f0c8; }
 .settings-hint.is-err { color: #ffb4b4; }
-
-.row.compact { margin-bottom: 8px; }
 
 /* XCoda v2.11 — plan strip, PRO badges, Pro tab, Music Ad Block */
 .brand-mark-img { width: 56px; height: 56px; border-radius: 16px; }

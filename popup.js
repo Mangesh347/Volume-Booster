@@ -9,10 +9,6 @@ const FREE_MAX = () =>
 const DEFAULTS = {
   powered: true,
   volume: 100,
-  clarity: 40,
-  bassBoost: 25,
-  space: 0,
-  widen: 0,
   mode: 'softclear',
   autoApply: true,
   adblock: false
@@ -25,11 +21,7 @@ let tabId = null;
 let tabUrl = '';
 let entitlement = { pro: false };
 let session = null;
-let guestId = null;
 let apiConfig = null;
-let boardScope = 'sites';
-let localListenSec = 0;
-let heartbeatTimer = null;
 let googleBusy = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -146,11 +138,10 @@ function updateDialMotion(v) {
 /* ── Storage / session ──────────────────────────────────────── */
 
 const SESSION_KEYS = new Set([
-  'vb_supabase_session', 'vb_guest_id', 'vb_guest_created_at',
-  'auralis_entitlement', 'auralis_email', 'vb_billing_email',
+  'vb_supabase_session',
+  'auralis_entitlement', 'auralis_email',
   'vb_google_auth_pending', 'vb_google_auth_error', 'vb_google_auth_ok_at',
-  'vb_pending_display_name', 'vb_pending_avatar', 'vb_profile_country',
-  'vb_listen_local', 'vb_site_usage', 'xcoda_payment_pending'
+  'vb_pending_display_name', 'vb_pending_avatar'
 ]);
 
 async function storageGet(keys) {
@@ -185,45 +176,16 @@ async function storageSet(obj) {
   await Promise.all(writes);
 }
 
-function makeGuestId() {
-  let part = '';
-  if (crypto?.randomUUID) {
-    part = crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase();
-  } else {
-    part = (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).toUpperCase().slice(0, 10);
-  }
-  return 'VB-GUEST-' + part;
-}
-
-async function ensureGuestId() {
-  const res = await storageGet(['vb_guest_id']);
-  if (res.vb_guest_id) {
-    guestId = res.vb_guest_id;
-    return guestId;
-  }
-  guestId = makeGuestId();
-  await storageSet({ vb_guest_id: guestId, vb_guest_created_at: Date.now() });
-  return guestId;
-}
-
 async function refreshSession() {
   const res = await storageGet([
     'vb_supabase_session',
-    'vb_guest_id',
     'auralis_entitlement',
-    'auralis_email',
-    'vb_listen_local',
-    'vb_profile_country'
+    'auralis_email'
   ]);
   session = res.vb_supabase_session || null;
-  guestId = res.vb_guest_id || null;
   entitlement = normalizeEntitlement(res.auralis_entitlement || { pro: false });
   if (!entitlement.email) {
     entitlement.email = String(res.auralis_email || '').toLowerCase();
-  }
-  localListenSec = Number(res.vb_listen_local) || 0;
-  if (res.vb_profile_country && $('countrySelect')) {
-    $('countrySelect').value = res.vb_profile_country;
   }
   return session;
 }
@@ -271,10 +233,6 @@ function applyAuthCapabilities(auth) {
   }
 }
 
-function preferredAuthProvider() {
-  return apiConfig?.auth?.googleEnabled ? 'Google' : 'email';
-}
-
 function isPro() {
   return globalThis.XCodaPlan ? XCodaPlan.isPro(entitlement) : !!entitlement.pro;
 }
@@ -295,9 +253,6 @@ function updateAuthPanels() {
 
   if ($('profileGuest')) $('profileGuest').hidden = signedIn;
   if ($('profileSignedIn')) $('profileSignedIn').hidden = !signedIn;
-  if ($('guestIdDisplay') && guestId) {
-    $('guestIdDisplay').textContent = guestId;
-  }
 }
 
 async function ensureFreshSession() {
@@ -326,7 +281,6 @@ async function consumeGoogleAuthResult() {
   ]);
   if (stored.vb_google_auth_error) {
     setAuthMsg(stored.vb_google_auth_error, 'err');
-    setAuthMsg(stored.vb_google_auth_error, 'err', 'authMsgBoards');
     await storageSet({ vb_google_auth_error: null, vb_google_auth_pending: false });
     return 'error';
   }
@@ -335,7 +289,6 @@ async function consumeGoogleAuthResult() {
     if (age < 5 * 60 * 1000) {
       session = stored.vb_supabase_session;
       setAuthMsg('Signed in with Google.', 'ok');
-      setAuthMsg('Signed in with Google.', 'ok', 'authMsgBoards');
       await storageSet({ vb_google_auth_ok_at: null, vb_google_auth_pending: false });
       return 'ok';
     }
@@ -349,7 +302,6 @@ async function consumeGoogleAuthResult() {
 async function initApp() {
   await refreshSession();
   await loadConfig();
-  if (!guestId) await ensureGuestId();
 
   renderUI();
   await loadState();
@@ -411,7 +363,7 @@ function bindStorageAuthSync() {
 /* ── Auth messages ──────────────────────────────────────────── */
 
 function setAuthMsg(text, kind, target) {
-  const el = $(target || 'authMsg') || $('authMsgBoards');
+  const el = $(target || 'authMsg');
   if (!el) return;
   el.textContent = text || '';
   el.className = 'auth-msg' + (kind ? ' ' + kind : '');
@@ -470,7 +422,6 @@ async function startGoogleSignIn() {
   if (googleBusy) return;
   googleBusy = true;
   setAuthMsg('Opening Google…', '', 'authMsg');
-  setAuthMsg('Opening Google…', '', 'authMsgBoards');
   $$('.btn-google').forEach((b) => { b.disabled = true; });
 
   const beforeToken = session?.access_token || null;
@@ -558,27 +509,15 @@ async function startGoogleSignIn() {
     }
 
     setAuthMsg('You’re in. Let’s make some noise.', 'ok');
-    setAuthMsg('You’re in. Let’s make some noise.', 'ok', 'authMsgBoards');
     await afterSignIn();
   } catch (err) {
     const msg = err.message || 'Google sign-in failed';
     setAuthMsg(msg, 'err');
-    setAuthMsg(msg, 'err', 'authMsgBoards');
   } finally {
     googleBusy = false;
     $$('.btn-google').forEach((b) => { b.disabled = false; });
   }
 }
-
-async function mergeGuestUsageToCloud() {
-  /* usage counting removed */
-}
-
-function startHeartbeat() {}
-function stopHeartbeat() {}
-function updateListenBadge() {}
-async function tickListen() {}
-function formatListen() { return ''; }
 
 function bindAuth() {
   $('btnGoogle')?.addEventListener('click', startGoogleSignIn);
@@ -894,9 +833,9 @@ function updatePlanStatusUI(verifiedOnline, lastErr) {
     ? 'Pro is active ✦'
     : 'You’re on Free';
 
-  ['planStatusLine', 'planStatusLineSignedIn'].forEach((id) => {
-    if ($(id)) $(id).textContent = statusText;
-  });
+  if ($('planStatusLineSignedIn')) {
+    $('planStatusLineSignedIn').textContent = statusText;
+  }
 
   const hintText = !verifiedOnline && lastErr
     ? 'You’re offline. Your last plan is still here.'
@@ -905,14 +844,10 @@ function updatePlanStatusUI(verifiedOnline, lastErr) {
       : '');
   const hintClass = 'settings-hint' + (verifiedOnline && isPro() ? ' is-ok' : '');
 
-  ['planVerifyHint', 'planVerifyHintSignedIn'].forEach((id) => {
-    const hint = $(id);
-    if (!hint) return;
-    if (hintText) {
-      hint.textContent = hintText;
-      hint.className = hintClass;
-    }
-  });
+  if ($('planVerifyHintSignedIn')) {
+    $('planVerifyHintSignedIn').textContent = hintText;
+    $('planVerifyHintSignedIn').className = hintClass;
+  }
 }
 
 /* ── Tabs ───────────────────────────────────────────────────── */
@@ -965,7 +900,12 @@ function bindTabs() {
 /* ── Boost ──────────────────────────────────────────────────── */
 
 function send(action, value, cb) {
-  if (!state.powered && action !== 'ping' && action !== 'setPower') {
+  if (
+    !state.powered &&
+    action !== 'ping' &&
+    action !== 'setPower' &&
+    action !== 'setAdblock'
+  ) {
     if (cb) cb(null);
     return;
   }
@@ -1056,10 +996,6 @@ function applyAll() {
   }
   send('setVolume', state.volume / 100);
   send('setMode', state.mode);
-  send('setClarity', state.clarity / 100);
-  send('setBassBoost', state.bassBoost / 100);
-  send('setSpace', state.space / 100);
-  send('setWiden', state.widen / 100);
   send('setAdblock', !!(state.adblock && isPro()));
 }
 
@@ -1126,7 +1062,14 @@ function bindBoost() {
     $('autoApplyBtn').classList.toggle('on', state.autoApply);
     $('autoApplyBtn').textContent = state.autoApply ? 'On' : 'Off';
     if (state.autoApply) scheduleSaveSite(true);
-    else chrome.runtime?.sendMessage?.({ action: 'clearSite', url: tabUrl });
+    else {
+      chrome.runtime?.sendMessage?.({
+        action: 'clearSite',
+        tabId,
+        url: tabUrl,
+        state: { ...state, autoApply: false }
+      });
+    }
   });
 }
 
@@ -1155,10 +1098,6 @@ function setVolume(v) {
   }
 }
 
-function flashPro() {
-  requireProOrTab();
-}
-
 function setSlider(el, val, min, max) {
   if (!el) return;
   el.value = val;
@@ -1176,44 +1115,6 @@ function updateVolDisplay(v) {
   updateDialMotion(n);
 }
 
-/* ── Boards (music sites + logos) ───────────────────────────── */
-
-function bindBoards() {
-  $$('.scope').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      boardScope = btn.dataset.scope;
-      $$('.scope').forEach((b) => b.classList.toggle('active', b === btn));
-      if ($('countryRow')) $('countryRow').hidden = boardScope !== 'country';
-      loadLeaderboard();
-    });
-  });
-  $('countrySelect')?.addEventListener('change', async () => {
-    const c = $('countrySelect').value;
-    await storageSet({ vb_profile_country: c });
-    if (hasSession()) {
-      await apiJson('/api/user/profile', {
-        method: 'PATCH',
-        body: { country: c }
-      }).catch(() => null);
-    }
-    if (boardScope === 'country') loadLeaderboard();
-  });
-}
-
-function hostFromUrl(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ''); }
-  catch { return 'unknown'; }
-}
-
-function logoFor(host) {
-  return globalThis.VBMusicSites?.logoUrl(host)
-    || ('https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host || 'example.com') + '&sz=64');
-}
-
-function nameFor(host) {
-  return globalThis.VBMusicSites?.displayName(host) || host;
-}
-
 async function apiJson(path, { method = 'GET', body } = {}) {
   const headers = { Accept: 'application/json' };
   if (session?.access_token) headers.Authorization = 'Bearer ' + session.access_token;
@@ -1226,185 +1127,6 @@ async function apiJson(path, { method = 'GET', body } = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
-}
-
-function siteUrl(host) {
-  const h = String(host || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-  return h ? 'https://' + h : '';
-}
-
-function renderSiteRow(row, rank) {
-  const div = document.createElement('div');
-  div.className = 'feed-card';
-  const host = row.site_host || row.top_site || '';
-  const name = row.site_name || nameFor(host);
-  const logo = row.logo_url || logoFor(host);
-  const href = siteUrl(host);
-  div.innerHTML =
-    '<img class="feed-logo" width="40" height="40" alt="" loading="lazy">' +
-    '<span class="feed-mid">' +
-      '<a class="feed-link" target="_blank" rel="noopener"></a>' +
-      '<div class="feed-sub"></div>' +
-    '</span>' +
-    '<span class="feed-score"></span>';
-  const img = div.querySelector('.feed-logo');
-  img.src = logo;
-  img.onerror = () => { img.style.opacity = '0.3'; };
-  const link = div.querySelector('.feed-link');
-  link.textContent = host || name;
-  link.title = name;
-  if (href) link.href = href;
-  else {
-    link.removeAttribute('href');
-    link.classList.add('is-plain');
-  }
-  div.querySelector('.feed-sub').textContent =
-    name + (rank != null ? ' · #' + rank : '') +
-    (row.listeners ? ' · ' + row.listeners + ' people' : '');
-  div.querySelector('.feed-score').textContent = formatListen(row.listen_seconds || 0);
-  return div;
-}
-
-function renderUserRow(row, i) {
-  const div = document.createElement('div');
-  div.className = 'feed-card';
-  const top = row.site_host || row.top_site || '';
-  div.innerHTML =
-    '<img class="feed-logo" width="40" height="40" alt="" loading="lazy">' +
-    '<span><div class="feed-name"></div><div class="feed-sub"></div></span>' +
-    '<span class="feed-score"></span>';
-  const img = div.querySelector('.feed-logo');
-  img.src = row.avatar_url || (top ? logoFor(top) : 'icons/icon48.png');
-  img.onerror = () => { img.src = 'icons/icon48.png'; };
-  div.querySelector('.feed-name').textContent = row.display_name || row.email || 'Listener';
-  div.querySelector('.feed-sub').textContent =
-    boardScope === 'country'
-      ? ((row.country || 'XX') + (top ? ' · ' + nameFor(top) : ''))
-      : (top ? 'Mostly ' + nameFor(top) : 'Music sites');
-  div.querySelector('.feed-score').textContent = formatListen(row.listen_seconds || 0);
-  return div;
-}
-
-function renderStories(sites) {
-  const rail = $('storyRail');
-  if (!rail) return;
-  rail.innerHTML = '';
-  (sites || []).slice(0, 10).forEach((row) => {
-    const host = row.site_host || '';
-    const el = document.createElement('div');
-    el.className = 'story';
-    el.innerHTML =
-      '<div class="story-ring"><img alt="" loading="lazy"></div>' +
-      '<div class="story-name"></div>';
-    const img = el.querySelector('img');
-    img.src = row.logo_url || logoFor(host);
-    img.onerror = () => { img.style.opacity = '0.3'; };
-    el.querySelector('.story-name').textContent = row.site_name || nameFor(host);
-    rail.appendChild(el);
-  });
-}
-
-async function loadLeaderboard() {
-  updateAuthPanels();
-  if (!hasSession()) return;
-
-  const list = $('boardList');
-  const empty = $('boardEmpty');
-  const meta = $('boardMeta');
-  if (!list) return;
-  list.innerHTML = '';
-  if ($('storyRail')) $('storyRail').innerHTML = '';
-  if (empty) {
-    empty.hidden = true;
-    empty.textContent = 'Play music/video with Boost On — only sites this extension boosts appear here.';
-  }
-  if (meta) meta.textContent = 'Loading…';
-
-  // Local sites where extension actually tracked media+boost
-  const local = await storageGet(['vb_site_usage']);
-  const localMap = local.vb_site_usage || {};
-  const localRows = Object.keys(localMap)
-    .filter((h) => globalThis.VBMusicSites?.isMusicHost(h))
-    .map((h) => ({
-      site_host: h,
-      site_name: nameFor(h),
-      logo_url: logoFor(h),
-      listen_seconds: Number(localMap[h]) || 0
-    }))
-    .sort((a, b) => b.listen_seconds - a.listen_seconds);
-
-  const country = $('countrySelect')?.value || 'XX';
-  const site = hostFromUrl(tabUrl);
-  const q = new URLSearchParams({ scope: boardScope, country, site });
-
-  try {
-    const data = await apiJson('/api/leaderboard?' + q.toString());
-    let rows = data.rows || [];
-
-    // Prefer merged "yours" = server + local for stories
-    const yoursMap = new Map();
-    (data.yours || []).forEach((r) => {
-      yoursMap.set(r.site_host, { ...r });
-    });
-    localRows.forEach((r) => {
-      const prev = yoursMap.get(r.site_host);
-      yoursMap.set(r.site_host, {
-        ...r,
-        listen_seconds: Math.max(r.listen_seconds, prev?.listen_seconds || 0),
-        logo_url: r.logo_url || prev?.logo_url
-      });
-    });
-    const yours = [...yoursMap.values()].sort((a, b) => b.listen_seconds - a.listen_seconds);
-    if (yours.length) {
-      renderStories(yours);
-      if ($('statSites')) $('statSites').textContent = String(yours.length);
-    }
-
-    if (boardScope === 'sites') {
-      // Show logos for sites you actually used first; then global music sites
-      const combined = new Map();
-      yours.forEach((r) => combined.set(r.site_host, r));
-      rows.forEach((r) => {
-        if (!combined.has(r.site_host)) combined.set(r.site_host, r);
-      });
-      rows = [...combined.values()].sort((a, b) => b.listen_seconds - a.listen_seconds);
-    }
-
-    if (!rows.length && !yours.length) {
-      if (empty) empty.hidden = false;
-      if (meta) meta.textContent = '';
-      return;
-    }
-
-    if (boardScope === 'sites' || data.mode === 'websites') {
-      (rows.length ? rows : yours).forEach((row, i) => list.appendChild(renderSiteRow(row, i + 1)));
-      if (meta) {
-        meta.textContent = data.you
-          ? 'You listened ' + formatListen(data.you.listen_seconds || localListenSec)
-          : (rows.length || yours.length) + ' music sites';
-      }
-    } else {
-      rows.forEach((row, i) => list.appendChild(renderUserRow(row, i)));
-      if (meta) {
-        meta.textContent = data.you
-          ? 'You: ' + formatListen(data.you.listen_seconds || 0) + (data.you.rank ? ' · #' + data.you.rank : '')
-          : rows.length + ' people';
-      }
-    }
-  } catch (err) {
-    // Offline: still show local tracked sites
-    if (localRows.length) {
-      renderStories(localRows);
-      localRows.forEach((row, i) => list.appendChild(renderSiteRow(row, i + 1)));
-      if (meta) meta.textContent = 'Showing saved results.';
-      return;
-    }
-    if (empty) {
-      empty.hidden = false;
-      empty.textContent = err.message || 'Could not load leaderboards.';
-    }
-    if (meta) meta.textContent = '';
-  }
 }
 
 /* ── Profile ────────────────────────────────────────────────── */
@@ -1421,17 +1143,18 @@ function bindProfile() {
       const payload = {
         display_name: ($('displayName')?.value || '').trim(),
         avatar_url: ($('avatarUrl')?.value || '').trim(),
-        bio: ($('bio')?.value || '').trim(),
-        country: $('countrySelect')?.value || 'XX'
+        bio: ($('bio')?.value || '').trim()
       };
       await apiJson('/api/user/profile', { method: 'PATCH', body: payload });
-      await storageSet({ vb_profile_country: payload.country });
       if (hint) {
         hint.textContent = 'Profile saved.';
         hint.className = 'settings-hint is-ok';
       }
       if ($('igName')) $('igName').textContent = payload.display_name || '—';
-      if ($('igBio')) $('igBio').textContent = payload.bio || '';
+      if ($('igBio')) {
+        $('igBio').textContent = payload.bio || '';
+        $('igBio').hidden = !payload.bio;
+      }
       if ($('igEmail')) $('igEmail').textContent = payload.email || session?.email || '';
     } catch (err) {
       if (hint) {
@@ -1442,7 +1165,6 @@ function bindProfile() {
   });
 
   $('signOutBtn')?.addEventListener('click', async () => {
-    stopHeartbeat();
     stopRealtimePlanUpdates();
     session = null;
     entitlement = normalizeEntitlement({ pro: false });
@@ -1456,7 +1178,6 @@ function bindProfile() {
       });
     });
     await refreshSession();
-    if (!guestId) await ensureGuestId();
     updateAuthPanels();
     updatePlanBadge();
     switchTab('boost');
@@ -1465,10 +1186,7 @@ function bindProfile() {
 
 async function loadProfile() {
   updateAuthPanels();
-  if (!hasSession()) {
-    if ($('guestIdDisplay') && guestId) $('guestIdDisplay').textContent = guestId;
-    return;
-  }
+  if (!hasSession()) return;
   if ($('igName')) $('igName').textContent = session.display_name || session.email || '—';
   if ($('igEmail')) $('igEmail').textContent = session.email || '';
   if ($('statPlan')) $('statPlan').textContent = isPro() ? 'Pro' : 'Free';
@@ -1490,11 +1208,13 @@ async function loadProfile() {
       $('avatarPreview').src = p.avatar_url || session.avatar_url;
     }
     if ($('igName')) $('igName').textContent = p.display_name || session.display_name || '—';
-    if ($('igBio')) $('igBio').textContent = p.bio || '';
+    if ($('igBio')) {
+      $('igBio').textContent = p.bio || '';
+      $('igBio').hidden = !p.bio;
+    }
     if ($('igEmail')) $('igEmail').textContent = p.email || session.email || '';
     if ($('statPlan')) $('statPlan').textContent = isPro() ? 'Pro' : 'Free';
-    if (p.country && $('countrySelect')) $('countrySelect').value = p.country;
-    
+
     const pending = await storageGet(['vb_pending_display_name', 'vb_pending_avatar']);
     if (pending.vb_pending_display_name && !$('displayName').value) {
       $('displayName').value = pending.vb_pending_display_name;

@@ -3,8 +3,7 @@
 ## 1. Supabase SQL
 1. Run `supabase/vb_schema.sql` in the Supabase SQL Editor.
 2. Run `supabase/xcoda_security.sql` for payment intents, atomic finalization, authenticated Realtime profile access, and API rate limiting.
-
-`vb_leaderboard.sql` is legacy only. XCoda no longer collects listening analytics.
+3. Existing projects must run `supabase/remove_location_leaderboard.sql` once to delete the retired country field and listening leaderboard table.
 
 Apply `xcoda_security.sql` before deploying v2.11.7 APIs. The migration intentionally fails if duplicate provider payment IDs already exist; investigate those rows instead of deleting them automatically.
 

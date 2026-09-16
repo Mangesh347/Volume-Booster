@@ -269,9 +269,7 @@
   }
 
   const ALLOWED_ACTIONS = new Set([
-    'resume', 'setPower', 'setVolume', 'setMode', 'setClarity',
-    'setBassBoost', 'setSpace', 'setWiden', 'setFreq', 'setReverb',
-    'setPitch', 'setPan', 'ping', 'adTick'
+    'resume', 'setPower', 'setVolume', 'setMode', 'ping', 'adTick'
   ]);
   const ALLOWED_MODES = new Set(['softclear', 'bass', 'lofi', 'vocal', 'cinema', 'normal']);
   const bounded = (value, min, max, fallback = min) => {
@@ -294,7 +292,6 @@
     }
     if (!sharedCtx || !masterGain) return { ok: false, reason: 'not_ready' };
     const ctx = sharedCtx;
-    const t = ctx.currentTime;
 
     switch (action) {
       case 'setPower':
@@ -308,50 +305,6 @@
         if (!ALLOWED_MODES.has(value)) return { ok: false, reason: 'invalid_mode' };
         applyMode(ctx, value);
         break;
-      case 'setClarity': {
-        const c = bounded(value, 0, 1, 0);
-        // Mild presence — clear speech without sharp edges
-        clarityFilter.gain.setTargetAtTime(c * 5.5, t, 0.12);
-        presenceFilter.gain.setTargetAtTime(c * 2.2, t, 0.12);
-        break;
-      }
-      case 'setBassBoost': {
-        const b = bounded(value, 0, 1, 0);
-        bassFilter.gain.setTargetAtTime(b * 8, t, 0.12);
-        break;
-      }
-      case 'setSpace': {
-        const w = bounded(value, 0, 1, 0);
-        wetGain.gain.setTargetAtTime(w * 0.32, t, 0.14);
-        dryGain.gain.setTargetAtTime(1 - w * 0.18, t, 0.14);
-        if (w > 0.05) makeImpulse(ctx, 1.3 + w * 1.4, 0.75);
-        break;
-      }
-      case 'setWiden': {
-        const w = bounded(value, 0, 1, 0);
-        // Subtle stereo space without loudness jump
-        widenGainL.gain.setTargetAtTime(1 + w * 0.1, t, 0.12);
-        widenGainR.gain.setTargetAtTime(1 + w * 0.12, t, 0.12);
-        break;
-      }
-      case 'setFreq':
-        bassFilter.frequency.setTargetAtTime(bounded(value, 20, 20000, 220), t, 0.1);
-        break;
-      case 'setReverb': {
-        const w = bounded(value, 0, 1, 0);
-        wetGain.gain.setTargetAtTime(w, t, 0.1);
-        dryGain.gain.setTargetAtTime(1 - w * 0.35, t, 0.1);
-        break;
-      }
-      case 'setPitch':
-        document.querySelectorAll('audio,video').forEach((el) => {
-          el.playbackRate = bounded(value, 0.25, 4, 1);
-          try { el.preservesPitch = true; } catch (_) {}
-        });
-        break;
-      case 'setPan':
-        if (panner) panner.pan.setTargetAtTime(bounded(value, -1, 1, 0), t, 0.08);
-        break;
       case 'ping':
         return {
           ok: true,
@@ -363,9 +316,11 @@
         const skipBtns = document.querySelectorAll(
           '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button[aria-label*="Skip ad" i], .ytp-ad-overlay-close-button'
         );
-        skipBtns.forEach((btn) => {
-          try { btn.click(); } catch (_) {}
-        });
+        if (adOn) {
+          skipBtns.forEach((btn) => {
+            try { btn.click(); } catch (_) {}
+          });
+        }
         const video =
           document.querySelector('video.html5-main-video') ||
           document.querySelector('#movie_player video') ||
@@ -374,7 +329,7 @@
           '.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, ytd-player[playing-ad]'
         );
         if (!video) break;
-        if (adOn || adDom) {
+        if (adOn && adDom) {
           if (!video.dataset.vbAd) {
             video.dataset.vbAd = '1';
             video.dataset.vbWasMuted = video.muted ? '1' : '0';
