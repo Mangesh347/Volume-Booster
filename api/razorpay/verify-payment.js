@@ -1,51 +1,62 @@
 /**
- * POST /api/razorpay/verify-payment — verify signature, then grant Pro in Supabase.
+ * POST /api/razorpay/verify-payment — Pro ONLY after Razorpay HMAC succeeds.
  */
 
 import crypto from "crypto";
-import { quoteINR, computeExpiresAt } from "../_lib/pricing.js";
-import { grantProAfterVerifiedPayment } from "../_lib/entitlement.js";
+import {
+  finalizePaymentIntent,
+  getPaymentIntent,
+  simulatedPaymentsAllowed
+} from "../_lib/payment-intents.js";
+import { secureApi, safeApiError } from "../_lib/http.js";
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (!await secureApi(req, res, {
+    methods: ["POST"],
+    rateLimit: {
+      scope: "razorpay-verify",
+      max: 12,
+      windowSeconds: 600,
+      identity: String(req.body?.razorpay_order_id || "")
+    }
+  })) return;
 
   const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
+  const keyId = process.env.RAZORPAY_KEY_ID || "";
 
   try {
     const {
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature,
-      email = "",
-      cycle = "yearly"
+      razorpay_signature
     } = req.body || {};
-
-    const em = String(email).toLowerCase().trim();
-    if (!em.includes("@")) return res.status(400).json({ error: "Valid billing email required" });
-
-    const quote = quoteINR(cycle);
-    const expiresAt = computeExpiresAt(cycle);
-
-    if (!keySecret || String(razorpay_order_id || "").startsWith("SIM_")) {
-      const grant = await grantProAfterVerifiedPayment({
-        email: em,
-        cycle: quote.cycle,
-        expiresAt,
-        provider: "simulated",
-        orderId: razorpay_order_id || `SIM_${Date.now()}`
-      });
-    if (!grant.ok) {
-      return res.status(503).json({
-        error: grant.error || "Could not activate Pro — check Supabase env",
-        hint: grant.hint || undefined,
-        success: false,
-        supabaseSaved: false
-      });
+    if (!/^(?:order_|SIM_)[A-Za-z0-9_-]{6,100}$/.test(String(razorpay_order_id || ""))) {
+      return res.status(400).json({ error: "Valid payment reference required.", success: false });
     }
+
+    const intent = await getPaymentIntent("razorpay", razorpay_order_id);
+    if (!intent) {
+      return res.status(404).json({ error: "Payment session not found", success: false });
+    }
+
+    if (!keyId || !keySecret || String(razorpay_order_id || "").startsWith("SIM_")) {
+      if (!simulatedPaymentsAllowed("razorpay")) {
+        return res.status(402).json({
+          error: "Payment not verified by Razorpay — Pro not granted",
+          success: false,
+          supabaseSaved: false
+        });
+      }
+      const grant = await finalizePaymentIntent(
+        "razorpay",
+        razorpay_order_id,
+        {
+          paymentId: razorpay_payment_id || razorpay_order_id,
+          amountMinor: Number(intent.amount_minor),
+          currency: intent.currency,
+          providerStatus: "SIMULATED"
+        }
+      );
       return res.status(200).json({
         success: true,
         autoPro: true,
@@ -61,32 +72,84 @@ export default async function handler(req, res) {
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ error: "Missing Razorpay verification fields", success: false });
     }
+    if (
+      !/^pay_[A-Za-z0-9_-]{6,100}$/.test(String(razorpay_payment_id)) ||
+      !/^[a-f0-9]{64}$/i.test(String(razorpay_signature))
+    ) {
+      return res.status(400).json({ error: "Invalid Razorpay verification fields.", success: false });
+    }
 
     const expected = crypto
       .createHmac("sha256", keySecret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    if (expected !== razorpay_signature) {
-      return res.status(400).json({ error: "Invalid payment signature — Pro not granted", success: false });
-    }
-
-    const grant = await grantProAfterVerifiedPayment({
-      email: em,
-      cycle: quote.cycle,
-      expiresAt,
-      provider: "razorpay",
-      orderId: razorpay_payment_id
-    });
-
-    if (!grant.ok) {
-      return res.status(503).json({
-        error: grant.error || "Payment verified but Pro could not be saved. Contact support.",
+    const expectedBuffer = Buffer.from(expected, "hex");
+    const providedBuffer = Buffer.from(String(razorpay_signature || ""), "hex");
+    if (
+      expectedBuffer.length !== providedBuffer.length ||
+      !crypto.timingSafeEqual(expectedBuffer, providedBuffer)
+    ) {
+      return res.status(400).json({
+        error: "Invalid payment signature — Pro not granted",
         success: false,
         supabaseSaved: false
       });
     }
 
+    const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+    const [paymentRes, orderRes] = await Promise.all([
+      fetch(
+        `https://api.razorpay.com/v1/payments/${encodeURIComponent(razorpay_payment_id)}`,
+        { headers: { Authorization: `Basic ${auth}` } }
+      ),
+      fetch(
+        `https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpay_order_id)}`,
+        { headers: { Authorization: `Basic ${auth}` } }
+      )
+    ]);
+    const [payment, order] = await Promise.all([
+      paymentRes.json().catch(() => ({})),
+      orderRes.json().catch(() => ({}))
+    ]);
+    if (
+      !paymentRes.ok ||
+      !orderRes.ok ||
+      payment.id !== razorpay_payment_id ||
+      payment.entity !== "payment" ||
+      payment.status !== "captured" ||
+      payment.captured !== true ||
+      String(payment.order_id || "") !== String(razorpay_order_id) ||
+      Number(payment.amount) !== Number(intent.amount_minor) ||
+      String(payment.currency || "") !== String(intent.currency) ||
+      order.id !== razorpay_order_id ||
+      order.entity !== "order" ||
+      order.status !== "paid" ||
+      Number(order.amount) !== Number(intent.amount_minor) ||
+      Number(order.amount_paid) !== Number(intent.amount_minor) ||
+      Number(order.amount_due) !== 0 ||
+      String(order.currency || "") !== String(intent.currency) ||
+      !String(order.receipt || "").startsWith(`xcoda_${intent.cycle}_`) ||
+      order.notes?.product !== "xcoda" ||
+      order.notes?.cycle !== intent.cycle
+    ) {
+      return res.status(409).json({
+        error: "Razorpay payment details did not match the XCoda order",
+        success: false,
+        supabaseSaved: false
+      });
+    }
+
+    const grant = await finalizePaymentIntent(
+      "razorpay",
+      razorpay_order_id,
+      {
+        paymentId: razorpay_payment_id,
+        amountMinor: Number(payment.amount),
+        currency: payment.currency,
+        providerStatus: payment.status
+      }
+    );
     return res.status(200).json({
       success: true,
       autoPro: true,
@@ -99,6 +162,7 @@ export default async function handler(req, res) {
       razorpay_payment_id
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message || String(err), success: false });
+    console.error("razorpay_verify_failed", err);
+    return safeApiError(res, 500, "Payment verification could not finish. Please try again.");
   }
 }

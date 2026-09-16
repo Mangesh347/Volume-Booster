@@ -3,37 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pro activated — Volume Booster</title>
-  <meta name="description" content="Payment verified. Volume Booster Pro is active on your billing email." />
+  <title>Welcome to XCoda Pro</title>
+  <meta name="description" content="Your XCoda Pro purchase is confirmed. Open XCoda and start boosting." />
+  <meta name="theme-color" content="#0a0a0a" />
+  <link rel="icon" href="icons/icon48.png" />
   <link rel="stylesheet" href="checkout.css" />
 </head>
-<body class="ck-body">
-  <div class="ck-shell" id="shell">
-    <main class="ck-right ck-success-wrap" style="grid-column:1/-1;max-width:560px;margin:0 auto;padding:48px 24px">
-      <div class="ck-success" id="box">
-        <div class="ck-success-check" aria-hidden="true">…</div>
-        <p class="ck-success-kicker" id="kicker">Checking payment…</p>
-        <h1 id="title">Verifying your Pro unlock</h1>
-        <p class="ck-success-lead" id="lead">Please wait while we confirm payment with the server.</p>
-        <p class="ck-success-meta" id="meta"></p>
-        <p class="ck-success-home" id="actions" hidden></p>
+<body class="ck-body ck-success-page">
+  <header class="ck-success-header">
+    <a class="ck-success-brand" href="/" aria-label="XCoda home">
+      <img src="icons/icon48.png" width="36" height="36" alt="" />
+      <span>XCoda</span>
+    </a>
+    <span class="ck-success-secure">Payment confirmation</span>
+  </header>
+
+  <main class="ck-success-shell">
+    <div class="ck-success-glow" aria-hidden="true"></div>
+    <section class="ck-success-card" id="box" aria-live="polite" aria-busy="true">
+      <div class="ck-success-check" aria-hidden="true">
+        <span class="ck-success-loader">•••</span>
       </div>
-    </main>
-  </div>
+      <p class="ck-success-kicker" id="kicker">Confirming your purchase</p>
+      <h1 id="title" tabindex="-1">Getting XCoda Pro ready</h1>
+      <p class="ck-success-lead" id="lead">This usually takes only a moment.</p>
+
+      <dl class="ck-success-receipt" id="receipt" hidden>
+        <div><dt>Account</dt><dd id="receiptEmail">—</dd></div>
+        <div><dt>Plan</dt><dd id="receiptPlan">XCoda Pro</dd></div>
+        <div id="accessRow"><dt>Access</dt><dd id="receiptAccess">Active</dd></div>
+        <div id="referenceRow" hidden><dt>Reference</dt><dd id="receiptReference">—</dd></div>
+      </dl>
+
+      <div class="ck-success-next" id="nextSteps" hidden>
+        <p class="ck-success-next-title">Start boosting in three quick steps</p>
+        <ol>
+          <li><span>1</span><div><strong>Pin XCoda</strong><small>Keep the waveform icon visible in your Chrome toolbar.</small></div></li>
+          <li><span>2</span><div><strong>Open any media tab</strong><small>Try a video, song, call, or lecture.</small></div></li>
+          <li><span>3</span><div><strong>Turn up the boost</strong><small>Open XCoda and choose your Pro level or sound scene.</small></div></li>
+        </ol>
+      </div>
+
+      <div class="ck-success-actions" id="actions" hidden>
+        <button type="button" class="ck-btn ck-btn-dark ck-success-cta" id="pingExt">
+          Activate XCoda Pro
+        </button>
+        <p class="ck-success-action-hint" id="actionHint">Then click the XCoda waveform icon in your toolbar.</p>
+        <a class="ck-success-home" href="/">Back to XCoda home</a>
+      </div>
+    </section>
+
+    <p class="ck-success-help">
+      Need help? <a href="support.html">Contact support</a>
+      <span aria-hidden="true">·</span>
+      <a href="refund.html">Refund policy</a>
+    </p>
+  </main>
 
   <script>
     const EXT_ID = "khiccfmolhkliobmkflgbpefpgeajhpb";
-    const params = new URLSearchParams(location.search);
-    const email = (params.get("email") || localStorage.getItem("vb_billing_email") || "").trim().toLowerCase();
-    const cycle = params.get("cycle") || localStorage.getItem("vb_pro_cycle") || "";
-    const expiresAt = params.get("expiresAt") || localStorage.getItem("vb_pro_expires_at") || "";
-    const failBack = "/checkout.html?error=verify_failed" + (email ? "&email=" + encodeURIComponent(email) : "") + (cycle ? "&cycle=" + encodeURIComponent(cycle) : "");
-
-    function escapeHtml(s) {
-      return String(s || "").replace(/[&<>"']/g, (c) =>
-        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-      );
-    }
+    let confirmation = null;
+    try {
+      confirmation = JSON.parse(sessionStorage.getItem("xcoda_payment_confirmation") || "null");
+    } catch (_) {}
+    const email = String(confirmation?.email || "").trim().toLowerCase();
+    const cycle = String(confirmation?.cycle || "");
+    const expiresAt = confirmation?.expiresAt || null;
+    const reference = String(confirmation?.reference || "");
+    const failBack = "/checkout.html?error=verify_failed" +
+      (cycle ? "&cycle=" + encodeURIComponent(cycle) : "");
 
     function goFail(reason) {
       try {
@@ -48,74 +86,68 @@
       try {
         if (chrome?.runtime?.sendMessage) {
           chrome.runtime.sendMessage(EXT_ID, {
-            type: "VB_PRO_UNLOCKED",
-            email,
-            cycle,
-            expiresAt
+            type: "XCODA_PAYMENT_VERIFIED"
           }, () => void chrome.runtime.lastError);
         }
       } catch (_) {}
     }
 
     function showOk(data) {
-      const em = escapeHtml(data.email || email);
-      const until = data.expiresAt
-        ? "Pro active until <strong>" + escapeHtml(new Date(data.expiresAt).toLocaleDateString()) + "</strong>"
-        : "Lifetime Pro on this email";
+      const accountEmail = data.email || email;
+      const planNames = {
+        monthly: "XCoda Pro Monthly",
+        yearly: "XCoda Pro Yearly",
+        stacked: "XCoda Pro · Stacked access",
+        lifetime: "XCoda Pro Lifetime"
+      };
+      const accessText = data.expiresAt
+        ? "Through " + new Date(data.expiresAt).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit"
+          })
+        : "Lifetime";
 
-      document.getElementById("box").querySelector(".ck-success-check").textContent = "✓";
-      document.getElementById("kicker").textContent = "Payment verified";
-      document.getElementById("title").textContent = "Pro is ready";
-      document.getElementById("lead").innerHTML =
-        "Pro is active for <strong>" + em + "</strong>. No license key.<br>" +
-        "Click the <strong>Volume Booster</strong> icon in your Chrome toolbar — Pro turns on for this billing email automatically.";
-      document.getElementById("meta").innerHTML = until + ". When the plan ends, you return to Free automatically.";
+      const box = document.getElementById("box");
+      box.setAttribute("aria-busy", "false");
+      box.querySelector(".ck-success-check").textContent = "✓";
+      document.getElementById("kicker").textContent = "Payment confirmed";
+      document.getElementById("title").textContent = "Welcome to XCoda Pro";
+      document.getElementById("lead").textContent =
+        "Your premium boost controls are ready. Open XCoda and make your first Pro-powered tab sound better.";
+      document.getElementById("receiptEmail").textContent = accountEmail;
+      document.getElementById("receiptPlan").textContent =
+        planNames[data.cycle] || "XCoda Pro";
+      document.getElementById("receiptAccess").textContent = accessText;
+      if (reference) {
+        document.getElementById("receiptReference").textContent = reference;
+        document.getElementById("referenceRow").hidden = false;
+      }
+      document.getElementById("receipt").hidden = false;
+      document.getElementById("nextSteps").hidden = false;
+
       const actions = document.getElementById("actions");
       actions.hidden = false;
-      actions.innerHTML =
-        '<button type="button" class="ck-btn ck-btn-dark" id="pingExt" style="display:inline-flex;margin:16px 0 8px;cursor:pointer">Refresh Pro in extension</button>' +
-        '<br><a href="/">Back to home</a>';
       document.getElementById("pingExt").addEventListener("click", () => {
         pingExtension();
         const btn = document.getElementById("pingExt");
-        btn.textContent = "Sent — open the toolbar icon";
+        btn.textContent = "XCoda Pro is ready";
+        btn.classList.add("is-ready");
+        document.getElementById("actionHint").textContent =
+          "Now click the XCoda waveform icon in your Chrome toolbar.";
       });
-
-      try {
-        localStorage.setItem("vb_billing_email", data.email || email);
-        localStorage.setItem("auralis_billing_email", data.email || email);
-        if (data.expiresAt) localStorage.setItem("vb_pro_expires_at", data.expiresAt);
-        if (data.cycle) localStorage.setItem("vb_pro_cycle", data.cycle);
-      } catch (_) {}
+      document.getElementById("title").focus();
 
       pingExtension();
     }
 
-    (async function run() {
-      if (!email || !email.includes("@")) {
-        goFail("Missing billing email");
-        return;
-      }
-      try {
-        const res = await fetch("/api/entitlement/activate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.pro) {
-          goFail(data.error || "Pro not found for this email yet");
-          return;
-        }
-        showOk({
-          email: data.email || email,
-          cycle: data.cycle || cycle,
-          expiresAt: data.expiresAt || expiresAt || null
-        });
-      } catch (err) {
-        goFail(err.message || "Network error during verification");
-      }
-    })();
+    if (!email.includes("@") || !["monthly", "yearly", "stacked", "lifetime"].includes(cycle)) {
+      goFail("Payment confirmation is missing. Return to checkout or contact support.");
+    } else {
+      showOk({ email, cycle, expiresAt });
+    }
   </script>
 </body>
 </html>

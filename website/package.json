@@ -1,6 +1,6 @@
 {
-  "name": "auralis-website",
+  "name": "xcoda-website",
   "private": true,
   "version": "1.0.0",
-  "description": "Auralis marketing site + PayPal/Razorpay checkout"
+  "description": "XCoda marketing site and PayPal/Razorpay checkout"
 }

@@ -1,9 +1,11 @@
-// Volume Booster popup — guest boost · in-ext Google · seal dial · music boards
+// XCoda popup — guest boost · Google · Pro tab · per-site auto-save
 
 const $ = (id) => document.getElementById(id);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 const SITE = 'https://volume-booster-ten.vercel.app';
+const FREE_MAX = () =>
+  (globalThis.XCodaPlan && XCodaPlan.FREE_MAX_VOLUME) || 300;
 const DEFAULTS = {
   powered: true,
   volume: 100,
@@ -12,9 +14,11 @@ const DEFAULTS = {
   space: 0,
   widen: 0,
   mode: 'softclear',
-  autoApply: false,
+  autoApply: true,
   adblock: false
 };
+let saveTimer = null;
+let selectedCycle = 'yearly';
 
 let state = { ...DEFAULTS };
 let tabId = null;
@@ -37,8 +41,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindAuth();
   bindTabs();
   bindBoost();
-  bindBoards();
   bindProfile();
+  bindStorageAuthSync();
   await refreshSession();
   await initApp();
 });
@@ -141,18 +145,44 @@ function updateDialMotion(v) {
 
 /* ── Storage / session ──────────────────────────────────────── */
 
-function storageGet(keys) {
-  return new Promise((resolve) => {
-    if (!chrome?.storage?.local) return resolve({});
-    chrome.storage.local.get(keys, resolve);
-  });
+const SESSION_KEYS = new Set([
+  'vb_supabase_session', 'vb_guest_id', 'vb_guest_created_at',
+  'auralis_entitlement', 'auralis_email', 'vb_billing_email',
+  'vb_google_auth_pending', 'vb_google_auth_error', 'vb_google_auth_ok_at',
+  'vb_pending_display_name', 'vb_pending_avatar', 'vb_profile_country',
+  'vb_listen_local', 'vb_site_usage', 'xcoda_payment_pending'
+]);
+
+async function storageGet(keys) {
+  const list = Array.isArray(keys) ? keys : [keys];
+  const localKeys = list.filter((key) => !SESSION_KEYS.has(key));
+  const sessionKeys = list.filter((key) => SESSION_KEYS.has(key));
+  const [local, secure] = await Promise.all([
+    localKeys.length
+      ? new Promise((resolve) => chrome.storage.local.get(localKeys, resolve))
+      : {},
+    sessionKeys.length
+      ? new Promise((resolve) => chrome.storage.session.get(sessionKeys, resolve))
+      : {}
+  ]);
+  return { ...local, ...secure };
 }
 
-function storageSet(obj) {
-  return new Promise((resolve) => {
-    if (!chrome?.storage?.local) return resolve();
-    chrome.storage.local.set(obj, resolve);
+async function storageSet(obj) {
+  const local = {};
+  const secure = {};
+  Object.entries(obj || {}).forEach(([key, value]) => {
+    (SESSION_KEYS.has(key) ? secure : local)[key] = value;
   });
+  const writes = [];
+  if (Object.keys(local).length) {
+    writes.push(new Promise((resolve) => chrome.storage.local.set(local, resolve)));
+  }
+  if (Object.keys(secure).length) {
+    writes.push(new Promise((resolve) => chrome.storage.session.set(secure, resolve)));
+    writes.push(new Promise((resolve) => chrome.storage.local.remove(Object.keys(secure), resolve)));
+  }
+  await Promise.all(writes);
 }
 
 function makeGuestId() {
@@ -182,7 +212,6 @@ async function refreshSession() {
     'vb_guest_id',
     'auralis_entitlement',
     'auralis_email',
-    'vb_billing_email',
     'vb_listen_local',
     'vb_profile_country'
   ]);
@@ -190,30 +219,64 @@ async function refreshSession() {
   guestId = res.vb_guest_id || null;
   entitlement = normalizeEntitlement(res.auralis_entitlement || { pro: false });
   if (!entitlement.email) {
-    entitlement.email = (res.vb_billing_email || res.auralis_email || '').toLowerCase();
+    entitlement.email = String(res.auralis_email || '').toLowerCase();
   }
   localListenSec = Number(res.vb_listen_local) || 0;
   if (res.vb_profile_country && $('countrySelect')) {
     $('countrySelect').value = res.vb_profile_country;
   }
-  if ($('billingEmailInput') && (res.vb_billing_email || entitlement.email)) {
-    $('billingEmailInput').value = res.vb_billing_email || entitlement.email;
-  }
   return session;
 }
 
 async function loadConfig() {
-  if (apiConfig?.supabase_url) return apiConfig;
+  if (apiConfig?.supabase_url) {
+    applyAuthCapabilities(apiConfig.auth);
+    return apiConfig;
+  }
   try {
     apiConfig = await (await fetch(SITE + '/api/config')).json();
   } catch {
     apiConfig = {};
   }
+  applyAuthCapabilities(apiConfig.auth);
   return apiConfig;
 }
 
+function applyAuthCapabilities(auth) {
+  const capabilities = auth || {};
+  const google = $('btnGoogle');
+  const emailDrawer = $('emailAuthForm')?.closest('details');
+  const signup = $('btnSignup');
+  if (google) {
+    google.disabled = capabilities.googleEnabled === false;
+    google.hidden = capabilities.googleEnabled === false;
+  }
+  if (emailDrawer) emailDrawer.hidden = capabilities.emailLoginEnabled === false;
+  if (signup) signup.hidden = capabilities.emailSignupEnabled === false;
+  const provider = capabilities.googleEnabled ? 'Google' : 'email';
+  if ($('guestSignInNote')) {
+    $('guestSignInNote').textContent =
+      `Boost free up to 300%. Sign in with ${provider} when you’re ready for XCoda Pro.`;
+  }
+  if ($('proAuthNote')) {
+    $('proAuthNote').textContent =
+      `Sign in with ${provider} first, then pay. Pro unlocks only after PayPal or Razorpay confirms payment.`;
+  }
+  if (
+    capabilities.available === false &&
+    $('authMsg') &&
+    !hasSession()
+  ) {
+    setAuthMsg('Sign-in is temporarily unavailable.', 'err');
+  }
+}
+
+function preferredAuthProvider() {
+  return apiConfig?.auth?.googleEnabled ? 'Google' : 'email';
+}
+
 function isPro() {
-  return globalThis.AuralisPlan ? AuralisPlan.isPro(entitlement) : !!entitlement.pro;
+  return globalThis.XCodaPlan ? XCodaPlan.isPro(entitlement) : !!entitlement.pro;
 }
 
 function hasSession() {
@@ -228,27 +291,64 @@ function updateAuthPanels() {
   const signedIn = hasSession();
   document.body.classList.toggle('is-guest', !signedIn);
   document.body.classList.toggle('is-signed-in', signedIn);
+  document.body.classList.toggle('is-pro', signedIn && isPro());
 
   if ($('profileGuest')) $('profileGuest').hidden = signedIn;
   if ($('profileSignedIn')) $('profileSignedIn').hidden = !signedIn;
-  if ($('boardsGuestGate')) $('boardsGuestGate').hidden = signedIn;
-  if ($('boardsContent')) $('boardsContent').hidden = !signedIn;
-
   if ($('guestIdDisplay') && guestId) {
     $('guestIdDisplay').textContent = guestId;
   }
+}
 
-  $$('.tab[data-tab="boards"]').forEach((t) => {
-    t.classList.toggle('tab-locked', !signedIn);
-  });
+async function ensureFreshSession() {
+  if (!hasSession()) return session;
+  try {
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'REFRESH_SESSION' }, (r) => {
+        void chrome.runtime.lastError;
+        resolve(r);
+      });
+    });
+    if (res?.ok && res.session) {
+      session = res.session;
+    }
+  } catch (_) {}
+  return session;
+}
 
-  if ($('countryRow')) {
-    $('countryRow').hidden = boardScope !== 'country';
+/** After Google OAuth the popup often closes — pick up success/error on reopen. */
+async function consumeGoogleAuthResult() {
+  const stored = await storageGet([
+    'vb_google_auth_error',
+    'vb_google_auth_ok_at',
+    'vb_google_auth_pending',
+    'vb_supabase_session'
+  ]);
+  if (stored.vb_google_auth_error) {
+    setAuthMsg(stored.vb_google_auth_error, 'err');
+    setAuthMsg(stored.vb_google_auth_error, 'err', 'authMsgBoards');
+    await storageSet({ vb_google_auth_error: null, vb_google_auth_pending: false });
+    return 'error';
   }
+  if (stored.vb_google_auth_ok_at && stored.vb_supabase_session?.access_token) {
+    const age = Date.now() - Number(stored.vb_google_auth_ok_at);
+    if (age < 5 * 60 * 1000) {
+      session = stored.vb_supabase_session;
+      setAuthMsg('Signed in with Google.', 'ok');
+      setAuthMsg('Signed in with Google.', 'ok', 'authMsgBoards');
+      await storageSet({ vb_google_auth_ok_at: null, vb_google_auth_pending: false });
+      return 'ok';
+    }
+  }
+  if (stored.vb_google_auth_pending) {
+    setAuthMsg('Google sign-in still running… finish in the browser window.', '');
+  }
+  return null;
 }
 
 async function initApp() {
   await refreshSession();
+  await loadConfig();
   if (!guestId) await ensureGuestId();
 
   renderUI();
@@ -256,15 +356,20 @@ async function initApp() {
   updateAuthPanels();
   updatePlanBadge();
 
-  // Always sync Pro/Free (session or billing email) — expires → Free automatically
-  await syncAccess(true);
+  const googleResult = await consumeGoogleAuthResult();
 
-  if (hasSession()) {
+  await ensureFreshSession();
+  await syncAccess(true);
+  startContinuousPlanVerification();
+  try {
+    chrome.runtime.sendMessage({ action: 'revalidatePlan' }, () => void chrome.runtime.lastError);
+  } catch (_) {}
+
+  if (hasSession() || googleResult === 'ok') {
     await loadProfile();
-    await mergeGuestUsageToCloud();
+    updateAuthPanels();
+    updatePlanBadge();
   }
-  startHeartbeat();
-  updateListenBadge();
 
   if (chrome?.runtime?.sendMessage) ping();
 }
@@ -274,11 +379,33 @@ async function afterSignIn() {
   updateAuthPanels();
   updatePlanBadge();
   await syncAccess(false);
-  await mergeGuestUsageToCloud();
   await loadProfile();
-  startHeartbeat();
   renderUI();
-  if ($('tab-boards') && !$('tab-boards').hidden) loadLeaderboard();
+  if ($('tab-pro') && !$('tab-pro').hidden) renderProTab();
+  startContinuousPlanVerification();
+}
+
+function bindStorageAuthSync() {
+  if (!chrome?.storage?.onChanged) return;
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' && area !== 'session') return;
+    if (changes.vb_supabase_session || changes.vb_google_auth_ok_at || changes.vb_google_auth_error) {
+      refreshSession().then(async () => {
+        await consumeGoogleAuthResult();
+        updateAuthPanels();
+        updatePlanBadge();
+        if (hasSession()) await loadProfile();
+        await syncAccess(true);
+        startRealtimePlanUpdates();
+      });
+    }
+    if (changes.auralis_entitlement) {
+      entitlement = normalizeEntitlement(changes.auralis_entitlement.newValue || { pro: false });
+      updateAuthPanels();
+      updatePlanBadge();
+      renderUI();
+    }
+  });
 }
 
 /* ── Auth messages ──────────────────────────────────────────── */
@@ -315,7 +442,7 @@ function persistSessionFromAuth(data, emailHint, profileHint) {
 async function supabaseAuth(path, body, extraHeaders) {
   const cfg = await loadConfig();
   if (!cfg.supabase_url || !cfg.supabase_anon_key) {
-    throw new Error('Auth not configured — set Supabase keys on the site.');
+    throw new Error('Sign-in is temporarily unavailable. Please try again later.');
   }
   const headers = {
     apikey: cfg.supabase_anon_key,
@@ -335,61 +462,10 @@ async function supabaseAuth(path, body, extraHeaders) {
   return data;
 }
 
-/* ── In-extension Google only (accounts.google.com → Supabase) ─ */
-
-function parseOAuthRedirect(responseUrl) {
-  const hash = responseUrl.includes('#') ? responseUrl.split('#')[1] : '';
-  const query = responseUrl.includes('?') ? responseUrl.split('?')[1].split('#')[0] : '';
-  const params = new URLSearchParams(hash || query);
-  return {
-    id_token: params.get('id_token'),
-    access_token: params.get('access_token'),
-    refresh_token: params.get('refresh_token'),
-    expires_in: params.get('expires_in'),
-    expires_at: params.get('expires_at'),
-    error: params.get('error') || params.get('error_description'),
-    error_code: params.get('error_code')
-  };
-}
-
-function launchWebAuth(url) {
-  return new Promise((resolve, reject) => {
-    chrome.identity.launchWebAuthFlow(
-      { url, interactive: true },
-      (responseUrl) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message || 'Google cancelled'));
-          return;
-        }
-        if (!responseUrl) {
-          reject(new Error('Google sign-in cancelled'));
-          return;
-        }
-        resolve(responseUrl);
-      }
-    );
-  });
-}
-
-function makeNonce() {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function fetchSupabaseUser(accessToken) {
-  const cfg = await loadConfig();
-  const res = await fetch(cfg.supabase_url + '/auth/v1/user', {
-    headers: {
-      apikey: cfg.supabase_anon_key,
-      Authorization: 'Bearer ' + accessToken
-    }
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
-
-/** Google OAuth inside Chrome identity — no website login page. */
+/**
+ * Google sign-in runs in the service worker so the OAuth window does not
+ * kill the auth mid-flow when this popup loses focus.
+ */
 async function startGoogleSignIn() {
   if (googleBusy) return;
   googleBusy = true;
@@ -397,66 +473,84 @@ async function startGoogleSignIn() {
   setAuthMsg('Opening Google…', '', 'authMsgBoards');
   $$('.btn-google').forEach((b) => { b.disabled = true; });
 
+  const beforeToken = session?.access_token || null;
+
   try {
-    if (!chrome?.identity?.launchWebAuthFlow || !chrome?.identity?.getRedirectURL) {
-      throw new Error('Google sign-in needs Chrome identity API.');
-    }
-
-    const cfg = await loadConfig();
-    if (!cfg.google_client_id) {
-      throw new Error('Google Client ID missing (set GOOGLE_CLIENT_ID on Vercel /api/config).');
-    }
-    if (!cfg.supabase_url || !cfg.supabase_anon_key) {
-      throw new Error('Supabase not configured.');
-    }
-
-    const redirectUri = chrome.identity.getRedirectURL();
-    const nonce = makeNonce();
-    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    authUrl.searchParams.set('client_id', cfg.google_client_id);
-    authUrl.searchParams.set('response_type', 'id_token');
-    authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('scope', 'openid email profile');
-    authUrl.searchParams.set('nonce', nonce);
-    authUrl.searchParams.set('prompt', 'select_account');
-
-    setAuthMsg('Pick your Google account…', '');
-    const responseUrl = await launchWebAuth(authUrl.toString());
-    const tokens = parseOAuthRedirect(responseUrl);
-    if (tokens.error) throw new Error(String(tokens.error).replace(/\+/g, ' '));
-    if (!tokens.id_token) {
-      throw new Error('Google did not return a token. Add this redirect URI in Google Cloud: ' + redirectUri);
-    }
-
-    setAuthMsg('Signing you in…', '');
-    const data = await supabaseAuth('/auth/v1/token?grant_type=id_token', {
-      provider: 'google',
-      id_token: tokens.id_token,
-      nonce
+    // Prefer SW response; also poll storage if popup stays open mid-OAuth
+    const swPromise = new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'GOOGLE_SIGN_IN' }, (res) => {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        resolve(res || { ok: false, error: 'No response from background' });
+      });
     });
 
-    let email = data.user?.email || data.email || '';
-    let meta = data.user?.user_metadata || {};
-    try {
-      const user = await fetchSupabaseUser(data.access_token || data.session?.access_token);
-      if (user) {
-        email = user.email || email;
-        meta = user.user_metadata || meta;
+    setAuthMsg('Complete Google in the window — reopen XCoda if this popup closes.', '');
+
+    const deadline = Date.now() + 120_000;
+    let authErr = null;
+    while (Date.now() < deadline) {
+      const raced = await Promise.race([
+        swPromise.then((r) => ({ type: 'sw', r })),
+        new Promise((r) => setTimeout(() => r({ type: 'tick' }), 700))
+      ]);
+
+      if (raced.type === 'sw') {
+        if (raced.r?.ok && raced.r.session?.access_token) {
+          session = raced.r.session;
+          break;
+        }
+        if (raced.r && raced.r.ok === false) {
+          authErr = raced.r.error || 'Google sign-in failed';
+          break;
+        }
       }
-    } catch (_) {}
 
-    await persistSessionFromAuth(data, email, {
-      name: meta.full_name || meta.name,
-      picture: meta.avatar_url || meta.picture
-    });
+      const stored = await storageGet([
+        'vb_supabase_session',
+        'vb_google_auth_error',
+        'vb_google_auth_pending',
+        'vb_google_auth_ok_at'
+      ]);
+      if (stored.vb_google_auth_error) {
+        authErr = stored.vb_google_auth_error;
+        await storageSet({ vb_google_auth_error: null, vb_google_auth_pending: false });
+        break;
+      }
+      const next = stored.vb_supabase_session;
+      if (next?.access_token && next.access_token !== beforeToken) {
+        session = next;
+        break;
+      }
+      if (!beforeToken && next?.access_token) {
+        session = next;
+        break;
+      }
+    }
+
+    if (authErr) throw new Error(authErr);
+
+    if (!session?.access_token) {
+      await refreshSession();
+    }
+
+    if (!hasSession()) {
+      throw new Error(
+        'Google sign-in did not finish. Complete the Google window, then reopen XCoda. If this continues, contact support.'
+      );
+    }
 
     try {
       await apiJson('/api/user/profile', {
         method: 'PATCH',
         body: {
-          display_name: meta.full_name || meta.name || (email ? email.split('@')[0] : 'User'),
-          avatar_url: meta.avatar_url || meta.picture || '',
-          email
+          display_name:
+            session?.display_name ||
+            (session?.email ? session.email.split('@')[0] : 'User'),
+          avatar_url: session?.avatar_url || '',
+          email: session?.email || ''
         }
       });
     } catch {
@@ -467,15 +561,7 @@ async function startGoogleSignIn() {
     setAuthMsg('Signed in with Google.', 'ok', 'authMsgBoards');
     await afterSignIn();
   } catch (err) {
-    let msg = err.message || 'Google sign-in failed';
-    if (/Authorization page could not be loaded/i.test(msg)) {
-      msg = 'Google blocked the redirect. In Google Cloud → Credentials → your Web client, add Authorized redirect URI: ' +
-        (chrome.identity?.getRedirectURL?.() || 'https://<ext-id>.chromiumapp.org/');
-    } else if (/nonce/i.test(msg)) {
-      msg = 'Google nonce error — close popup and try Continue with Google again.';
-    } else if (/redirect_uri_mismatch/i.test(msg)) {
-      msg = 'Redirect URI mismatch. Add ' + chrome.identity.getRedirectURL() + ' in Google Cloud Console.';
-    }
+    const msg = err.message || 'Google sign-in failed';
     setAuthMsg(msg, 'err');
     setAuthMsg(msg, 'err', 'authMsgBoards');
   } finally {
@@ -485,47 +571,17 @@ async function startGoogleSignIn() {
 }
 
 async function mergeGuestUsageToCloud() {
-  if (!hasSession()) return;
-  const stored = await storageGet(['vb_site_usage', 'vb_listen_local', 'vb_profile_country']);
-  const map = stored.vb_site_usage || {};
-  const sites = Object.keys(map).map((host) => ({
-    site_host: host,
-    seconds: Math.floor(Number(map[host]) || 0)
-  })).filter((s) => s.seconds > 0);
-
-  // If only total local seconds exist, attribute to current music host when possible
-  const localTotal = Number(stored.vb_listen_local) || 0;
-  if (!sites.length && localTotal > 0) {
-    const host = hostFromUrl(tabUrl);
-    if (globalThis.VBMusicSites?.isMusicHost(host)) {
-      sites.push({ site_host: host, seconds: localTotal });
-    }
-  }
-  if (!sites.length) return;
-
-  try {
-    const data = await apiJson('/api/usage/merge', {
-      method: 'POST',
-      body: {
-        sites,
-        country: stored.vb_profile_country || $('countrySelect')?.value || 'XX',
-        display_name: ($('displayName')?.value || session?.display_name || '').trim() || undefined
-      }
-    });
-    if (data.success) {
-      // Keep local map but mark synced; do not wipe so offline still works
-      await storageSet({ vb_guest_merged_at: Date.now() });
-    }
-  } catch {
-    /* retry next open */
-  }
+  /* usage counting removed */
 }
+
+function startHeartbeat() {}
+function stopHeartbeat() {}
+function updateListenBadge() {}
+async function tickListen() {}
+function formatListen() { return ''; }
 
 function bindAuth() {
   $('btnGoogle')?.addEventListener('click', startGoogleSignIn);
-  $('btnGoogleBoards')?.addEventListener('click', startGoogleSignIn);
-
-  $('boardsGoProfile')?.addEventListener('click', () => switchTab('profile'));
 
   $('emailAuthForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -597,7 +653,8 @@ function normalizeEntitlement(raw) {
       cycle,
       expiresAt,
       unlockedAt: raw?.unlockedAt || Date.now(),
-      verifiedAt: Date.now()
+      verifiedAt: raw?.verifiedAt || Date.now(),
+      offline: !!raw?.offline
     };
   }
   return {
@@ -607,141 +664,119 @@ function normalizeEntitlement(raw) {
     cycle: null,
     expiresAt: null,
     unlockedAt: raw?.unlockedAt || null,
-    verifiedAt: Date.now()
+    verifiedAt: raw?.verifiedAt || Date.now(),
+    offline: !!raw?.offline
   };
 }
 
-function pickBetterAccess(a, b) {
-  const A = normalizeEntitlement(a);
-  const B = normalizeEntitlement(b);
-  if (A.pro && !B.pro) return A;
-  if (B.pro && !A.pro) return B;
-  if (A.pro && B.pro) {
-    const ae = A.expiresAt ? new Date(A.expiresAt).getTime() : Infinity;
-    const be = B.expiresAt ? new Date(B.expiresAt).getTime() : Infinity;
-    return be >= ae ? B : A;
-  }
-  return B.email ? B : A;
-}
+let planSyncPromise = null;
+let realtimeClient = null;
+let realtimeDebounce = null;
+let planPollTimer = null;
+let freshnessTimer = null;
+let lastPlanCheckAt = 0;
 
-async function fetchAccessByEmail(em) {
-  const res = await fetch(SITE + '/api/entitlement/activate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: em })
-  });
-  const data = await res.json().catch(() => ({}));
-  return normalizeEntitlement({
-    pro: !!(res.ok && data.pro),
-    plan: data.plan || (data.pro ? 'pro' : 'free'),
-    email: data.email || em,
-    cycle: data.cycle || null,
-    expiresAt: data.expiresAt || null
-  });
-}
-
-async function fetchAccessBySession() {
-  if (!hasSession()) return null;
-  const res = await fetch(SITE + '/api/user/access', {
-    headers: { Authorization: 'Bearer ' + session.access_token }
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(data.error || 'Session expired — sign in again.');
-    err.status = res.status;
-    throw err;
-  }
-  return normalizeEntitlement({
-    pro: !!data.pro,
-    plan: data.plan || (data.pro ? 'pro' : 'free'),
-    email: data.email || session.email,
-    cycle: data.cycle || null,
-    expiresAt: data.expiresAt || null
-  });
-}
-
-/**
- * Source of truth: Supabase via website APIs.
- * Checks Google session + every stored billing email; Pro only if deadline still valid.
- * If Supabase says Pro and popup was Free, upgrades immediately.
- */
 async function syncAccess(quiet) {
-  const stored = await storageGet([
-    'auralis_email',
-    'vb_billing_email',
-    'auralis_entitlement'
-  ]);
-  const emails = [];
-  const pushEmail = (e) => {
-    const em = String(e || '').trim().toLowerCase();
-    if (em.includes('@') && !emails.includes(em)) emails.push(em);
-  };
-  pushEmail(session?.email);
-  pushEmail(stored.auralis_email);
-  pushEmail(stored.vb_billing_email);
-  pushEmail(entitlement?.email);
-  pushEmail($('billingEmailInput')?.value);
+  if (planSyncPromise) return planSyncPromise;
+  planSyncPromise = (async () => {
+    await refreshSession();
+    if (!hasSession()) {
+      entitlement = normalizeEntitlement({ pro: false });
+      await storageSet({ auralis_entitlement: entitlement, auralis_email: '' });
+      updateAuthPanels();
+      updatePlanBadge();
+      updatePlanStatusUI(true, null);
+      renderUI();
+      return entitlement;
+    }
 
-  let best = normalizeEntitlement(stored.auralis_entitlement || entitlement || { pro: false });
-  let verifiedOnline = false;
-  let lastErr = null;
-
-  if (hasSession()) {
+    let verifiedOnline = false;
+    let lastErr = null;
     try {
-      const sessionAccess = await fetchAccessBySession();
-      if (sessionAccess) {
-        best = pickBetterAccess(best, sessionAccess);
-        verifiedOnline = true;
-        pushEmail(sessionAccess.email);
-      }
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'revalidatePlan' }, (result) => {
+          void chrome.runtime.lastError;
+          resolve(result);
+        });
+      });
+      if (!response?.ok) throw new Error(response?.error || 'Plan check failed');
+      entitlement = normalizeEntitlement(response.entitlement || { pro: false });
+      verifiedOnline = !entitlement.offline;
+      lastPlanCheckAt = Date.now();
+      await refreshSession();
     } catch (err) {
       lastErr = err;
-      if (!quiet) {
-        const hint = $('planVerifyHint') || $('profileHint');
-        if (hint && err.status === 401) {
-          hint.textContent = err.message || 'Session expired — sign in again.';
-          hint.className = 'settings-hint is-err';
-        }
-      }
+      entitlement = normalizeEntitlement(entitlement || { pro: false });
+      if (!quiet) setAuthMsg('Plan check paused — reconnecting…', '');
     }
-  }
 
-  for (const em of emails) {
-    try {
-      const access = await fetchAccessByEmail(em);
-      best = pickBetterAccess(best, access);
-      verifiedOnline = true;
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-
-  if (!verifiedOnline) {
-    best = normalizeEntitlement(best);
-  }
-
-  entitlement = best;
-  const keepBilling = String(stored.vb_billing_email || '').trim().toLowerCase();
-  const billing =
-    (entitlement.pro && entitlement.email) ||
-    keepBilling ||
-    entitlement.email ||
-    emails[0] ||
-    '';
-  await storageSet({
-    auralis_entitlement: entitlement,
-    auralis_email: entitlement.email || billing || stored.auralis_email || '',
-    vb_billing_email: billing
+    updateAuthPanels();
+    updatePlanBadge();
+    updatePlanStatusUI(verifiedOnline, lastErr);
+    renderUI();
+    return entitlement;
+  })().finally(() => {
+    planSyncPromise = null;
   });
-
-  if ($('billingEmailInput') && billing && !$('billingEmailInput').value) {
-    $('billingEmailInput').value = billing;
-  }
-
-  updatePlanBadge();
-  updatePlanStatusUI(verifiedOnline, lastErr);
-  if (typeof renderUI === 'function') renderUI();
+  return planSyncPromise;
 }
+
+function stopRealtimePlanUpdates() {
+  clearTimeout(realtimeDebounce);
+  realtimeClient?.close?.();
+  realtimeClient = null;
+}
+
+async function startRealtimePlanUpdates() {
+  stopRealtimePlanUpdates();
+  await refreshSession();
+  if (!hasSession() || !session.user_id || !globalThis.XCodaRealtime) return;
+  const cfg = await loadConfig();
+  if (!cfg.supabase_url || !cfg.supabase_anon_key) return;
+  realtimeClient = XCodaRealtime.create({
+    url: cfg.supabase_url,
+    anonKey: cfg.supabase_anon_key,
+    accessToken: session.access_token,
+    userId: session.user_id,
+    onChange() {
+      clearTimeout(realtimeDebounce);
+      realtimeDebounce = setTimeout(() => syncAccess(true), 250);
+    },
+    onStatus(status) {
+      document.body.dataset.planConnection = status;
+    }
+  });
+}
+
+function startContinuousPlanVerification() {
+  clearInterval(planPollTimer);
+  clearInterval(freshnessTimer);
+  planPollTimer = setInterval(() => syncAccess(true), 30000);
+  freshnessTimer = setInterval(() => {
+    if (
+      entitlement?.pro &&
+      entitlement.expiresAt &&
+      new Date(entitlement.expiresAt).getTime() <= Date.now()
+    ) {
+      entitlement = normalizeEntitlement(entitlement);
+      storageSet({ auralis_entitlement: entitlement });
+      updateAuthPanels();
+      updatePlanBadge();
+      renderUI();
+      syncAccess(true);
+    }
+    const hint = $('planVerifyHintSignedIn');
+    if (!hint || !hasSession()) return;
+    if (document.body.dataset.planConnection === 'offline') {
+      hint.textContent = 'Offline · reconnecting';
+    } else if (lastPlanCheckAt) {
+      hint.textContent = 'Plan current';
+    }
+  }, 1000);
+  startRealtimePlanUpdates();
+}
+
+window.addEventListener('unload', stopRealtimePlanUpdates);
 
 function planLabel() {
   if (isPro()) {
@@ -752,47 +787,127 @@ function planLabel() {
   return isGuest() ? 'Guest · Free' : 'Free';
 }
 
+function accessCycleLabel(cycle) {
+  const labels = {
+    monthly: 'Monthly access',
+    yearly: 'Yearly access',
+    stacked: 'Stacked access',
+    lifetime: 'Lifetime'
+  };
+  return labels[cycle] || 'Pro access';
+}
+
+function formatAccessDeadline(value, includeTime = true) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '—';
+  return date.toLocaleString(undefined, includeTime
+    ? {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      }
+    : {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+}
+
 function updatePlanBadge() {
   const badge = $('planBadge');
+  const meta = $('planStripMeta');
+  const strip = $('planStrip');
   const pro = isPro();
   if (badge) badge.textContent = planLabel();
-  if ($('statPlan')) $('statPlan').textContent = pro ? 'Pro' : (isGuest() ? 'Guest' : 'Free');
-  const link = $('proCheckoutLink');
-  const linkGuest = $('proCheckoutLinkGuest');
-  [link, linkGuest].forEach((el) => {
-    if (!el) return;
-    el.style.display = pro ? 'none' : '';
-    const email = entitlement?.email || session?.email || $('billingEmailInput')?.value || '';
-    if (email && globalThis.AuralisPlan) {
-      el.href = AuralisPlan.checkoutUrl('yearly', email);
+  if (meta) {
+    if (pro) {
+      const bits = [];
+      if (entitlement.cycle) bits.push(accessCycleLabel(entitlement.cycle));
+      if (entitlement.email) bits.push(entitlement.email);
+      if (entitlement.expiresAt) {
+        bits.push('ends ' + formatAccessDeadline(entitlement.expiresAt));
+      } else if (entitlement.cycle === 'lifetime' || !entitlement.expiresAt) {
+        bits.push('Lifetime');
+      }
+      meta.textContent = bits.filter(Boolean).join(' · ') || 'Active';
+    } else {
+      meta.textContent = 'View plans / Upgrade';
     }
+  }
+  if (strip) {
+    strip.classList.toggle('is-pro', pro);
+    strip.classList.toggle('is-free', !pro);
+  }
+  if ($('statPlan')) $('statPlan').textContent = pro ? 'Pro' : (isGuest() ? 'Guest' : 'Free');
+  renderProTab();
+}
+
+function renderProTab() {
+  const active = $('proActiveCard');
+  const upgradeBtn = $('upgradeBtn');
+  if (isPro()) {
+    if (active) active.hidden = false;
+    if ($('proDetailStatus')) $('proDetailStatus').textContent = 'Pro';
+    if ($('proDetailCycle')) {
+      $('proDetailCycle').textContent = accessCycleLabel(entitlement.cycle);
+    }
+    if ($('proDetailEmail')) {
+      $('proDetailEmail').textContent =
+        entitlement.email || session?.email || '—';
+    }
+    if ($('proDetailExpiry')) {
+      $('proDetailExpiry').textContent = entitlement.expiresAt
+        ? 'Through ' + formatAccessDeadline(entitlement.expiresAt)
+        : 'Lifetime';
+    }
+    if ($('proHeading')) $('proHeading').textContent = 'You’re on Pro';
+    if ($('proLede')) $('proLede').textContent = 'Your 600% boost, Music Ad Block, and premium sound scenes are ready.';
+    if (upgradeBtn) upgradeBtn.textContent = 'Renew / extend plan';
+  } else {
+    if (active) active.hidden = true;
+    if ($('proHeading')) $('proHeading').textContent = 'XCoda Pro';
+    if ($('proLede')) {
+      $('proLede').textContent = 'Boost to 600%, Music Ad Block, and Pro sound scenes.';
+    }
+    if (upgradeBtn) {
+      upgradeBtn.textContent = hasSession() ? 'Upgrade to Pro' : 'Sign in to upgrade';
+    }
+  }
+  $$('.price-pill').forEach((p) => {
+    p.classList.toggle('recommended', p.dataset.cycle === selectedCycle);
+    p.classList.toggle('active', p.dataset.cycle === selectedCycle);
   });
+}
+
+function requireProOrTab() {
+  switchTab('pro');
+  const hint = $('upgradeHint');
+  if (hint) {
+    hint.textContent = hasSession()
+      ? 'This feature needs Pro — pick a plan below.'
+      : `Sign in with ${preferredAuthProvider()} on the You tab, then upgrade.`;
+    hint.className = 'settings-hint';
+  }
 }
 
 function updatePlanStatusUI(verifiedOnline, lastErr) {
   const em = entitlement?.email || session?.email || '';
   const statusText = isPro()
-    ? (em
-      ? 'Verified Pro for ' + em + (entitlement.expiresAt
-        ? ' · ends ' + new Date(entitlement.expiresAt).toLocaleDateString()
-        : ' · lifetime')
-      : planLabel())
-    : (em
-      ? 'Free for ' + em + ' (no active Pro / expired)'
-      : 'Free — enter the billing email from checkout to verify');
+    ? (em ? 'XCoda Pro · ' + em : 'XCoda Pro')
+    : (em ? 'XCoda Free · ' + em : 'XCoda Free');
 
   ['planStatusLine', 'planStatusLineSignedIn'].forEach((id) => {
     if ($(id)) $(id).textContent = statusText;
   });
 
   const hintText = !verifiedOnline && lastErr
-    ? 'Offline — using cached plan; expiry still enforced locally.'
+    ? 'Showing your most recently available plan.'
     : (verifiedOnline
-      ? (isPro()
-        ? 'Synced from Supabase. Auto Free when the deadline passes.'
-        : 'Synced from Supabase — Free plan.')
+      ? (isPro() ? 'Your Pro controls are ready.' : 'You’re using XCoda Free.')
       : '');
-  const hintClass = 'settings-hint' + (verifiedOnline && isPro() ? ' is-ok' : (!verifiedOnline && lastErr ? '' : (verifiedOnline ? '' : '')));
+  const hintClass = 'settings-hint' + (verifiedOnline && isPro() ? ' is-ok' : '');
 
   ['planVerifyHint', 'planVerifyHintSignedIn'].forEach((id) => {
     const hint = $(id);
@@ -818,13 +933,36 @@ function switchTab(id) {
     p.classList.toggle('active', on);
   });
   updateAuthPanels();
-  if (id === 'boards') loadLeaderboard();
+  if (id === 'pro') renderProTab();
   if (id === 'profile') loadProfile();
 }
 
 function bindTabs() {
   $$('.tab').forEach((tab) => {
     tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+  $('planStrip')?.addEventListener('click', () => switchTab('pro'));
+  $$('.price-pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      selectedCycle = pill.dataset.cycle || 'yearly';
+      renderProTab();
+    });
+  });
+  $('upgradeBtn')?.addEventListener('click', () => {
+    const hint = $('upgradeHint');
+    if (!hasSession()) {
+      if (hint) {
+        hint.textContent = `Sign in with ${preferredAuthProvider()} first, then upgrade.`;
+        hint.className = 'settings-hint is-err';
+      }
+      switchTab('profile');
+      return;
+    }
+    const email = session?.email || entitlement?.email || '';
+    const url = globalThis.XCodaPlan
+      ? XCodaPlan.checkoutUrl(selectedCycle, email)
+      : SITE + '/checkout.html?cycle=' + encodeURIComponent(selectedCycle);
+    chrome.tabs?.create?.({ url });
   });
 }
 
@@ -934,29 +1072,33 @@ function bindBoost() {
     state.powered = this.checked;
     document.body.classList.toggle('is-off', !state.powered);
     applyAll();
+    scheduleSaveSite();
     chrome.runtime?.sendMessage?.({ action: 'updateBadge', volume: state.powered ? state.volume : 100 });
   });
 
   $('volumeSlider')?.addEventListener('input', function () {
     let v = parseInt(this.value, 10);
-    if (!isPro() && v > 200) {
-      v = 200;
+    const cap = FREE_MAX();
+    if (!isPro() && v > cap) {
+      v = cap;
       this.value = v;
-      flashPro();
+      requireProOrTab();
     }
     setVolume(v);
+    scheduleSaveSite();
   });
 
   $$('.feat').forEach((btn) => btn.addEventListener('click', function () {
     const mode = this.dataset.mode;
-    if (globalThis.AuralisPlan && !AuralisPlan.canUseScene(entitlement, mode)) {
-      flashPro();
+    if (globalThis.XCodaPlan && !XCodaPlan.canUseScene(entitlement, mode)) {
+      requireProOrTab();
       return;
     }
     $$('.feat').forEach((b) => b.classList.remove('active'));
     this.classList.add('active');
     state.mode = mode;
     send('setMode', state.mode);
+    scheduleSaveSite();
   }));
 
   $('adblockToggle')?.addEventListener('change', function () {
@@ -965,18 +1107,20 @@ function bindBoost() {
       this.checked = false;
       state.adblock = false;
       if (hint) {
-        hint.textContent = 'Music ad block is Pro — upgrade to unlock.';
+        hint.textContent = 'Music Ad Block is Pro — open the Pro tab to upgrade.';
         hint.className = 'feat-hint is-err';
       }
-      flashPro();
+      requireProOrTab();
       send('setAdblock', false);
       return;
     }
     state.adblock = this.checked;
     send('setAdblock', state.adblock);
-    chrome.runtime?.sendMessage?.({ action: 'saveState', tabId, url: tabUrl, state });
+    scheduleSaveSite(true);
     if (hint) {
-      hint.textContent = state.adblock ? 'Ad block on for music sites.' : '';
+      hint.textContent = state.adblock
+        ? 'On — blocks ads while music/video plays on supported sites.'
+        : '';
       hint.className = state.adblock ? 'feat-hint is-ok' : 'feat-hint';
     }
   });
@@ -985,9 +1129,23 @@ function bindBoost() {
     state.autoApply = !state.autoApply;
     $('autoApplyBtn').classList.toggle('on', state.autoApply);
     $('autoApplyBtn').textContent = state.autoApply ? 'On' : 'Off';
-    if (state.autoApply) chrome.runtime?.sendMessage?.({ action: 'saveState', tabId, url: tabUrl, state });
+    if (state.autoApply) scheduleSaveSite(true);
     else chrome.runtime?.sendMessage?.({ action: 'clearSite', url: tabUrl });
   });
+}
+
+function scheduleSaveSite(immediate) {
+  if (!tabUrl || !tabId) return;
+  const run = () => {
+    const payload = { ...state, autoApply: state.autoApply !== false };
+    chrome.runtime?.sendMessage?.({ action: 'saveState', tabId, url: tabUrl, state: payload });
+  };
+  if (immediate) {
+    run();
+    return;
+  }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(run, 400);
 }
 
 function setVolume(v) {
@@ -1002,15 +1160,7 @@ function setVolume(v) {
 }
 
 function flashPro() {
-  const link = $('proCheckoutLink');
-  if (link) {
-    link.style.transform = 'scale(1.03)';
-    setTimeout(() => { link.style.transform = ''; }, 220);
-  }
-  if ($('adblockHint')) {
-    $('adblockHint').textContent = 'Pro unlocks louder boost, tones, and ad block.';
-    $('adblockHint').className = 'feat-hint';
-  }
+  requireProOrTab();
 }
 
 function setSlider(el, val, min, max) {
@@ -1250,7 +1400,7 @@ async function loadLeaderboard() {
     if (localRows.length) {
       renderStories(localRows);
       localRows.forEach((row, i) => list.appendChild(renderSiteRow(row, i + 1)));
-      if (meta) meta.textContent = 'Local usage (sign-in sync pending)';
+      if (meta) meta.textContent = 'Showing saved results.';
       return;
     }
     if (empty) {
@@ -1259,20 +1409,6 @@ async function loadLeaderboard() {
     }
     if (meta) meta.textContent = '';
   }
-}
-
-function formatListen(sec) {
-  const s = Math.max(0, Math.floor(Number(sec) || 0));
-  if (s < 60) return s + 's';
-  if (s < 3600) return Math.floor(s / 60) + 'm';
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return h + 'h ' + m + 'm';
-}
-
-function updateListenBadge() {
-  if ($('listenBadge')) $('listenBadge').textContent = formatListen(localListenSec);
-  if ($('statListen')) $('statListen').textContent = formatListen(localListenSec);
 }
 
 /* ── Profile ────────────────────────────────────────────────── */
@@ -1290,18 +1426,10 @@ function bindProfile() {
         display_name: ($('displayName')?.value || '').trim(),
         avatar_url: ($('avatarUrl')?.value || '').trim(),
         bio: ($('bio')?.value || '').trim(),
-        country: $('countrySelect')?.value || 'XX',
-        email: ($('profileEmail')?.value || '').trim().toLowerCase() || undefined
+        country: $('countrySelect')?.value || 'XX'
       };
       await apiJson('/api/user/profile', { method: 'PATCH', body: payload });
-      await storageSet({
-        vb_profile_country: payload.country,
-        auralis_email: payload.email || session?.email || ''
-      });
-      if (session && payload.email) {
-        session.email = payload.email;
-        await storageSet({ vb_supabase_session: session });
-      }
+      await storageSet({ vb_profile_country: payload.country });
       if (hint) {
         hint.textContent = 'Profile saved.';
         hint.className = 'settings-hint is-ok';
@@ -1319,44 +1447,23 @@ function bindProfile() {
 
   $('signOutBtn')?.addEventListener('click', async () => {
     stopHeartbeat();
+    stopRealtimePlanUpdates();
     session = null;
-    await storageSet({ vb_supabase_session: null });
+    entitlement = normalizeEntitlement({ pro: false });
+    updateAuthPanels();
+    updatePlanBadge();
+    renderUI();
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'SIGN_OUT' }, () => {
+        void chrome.runtime.lastError;
+        resolve();
+      });
+    });
     await refreshSession();
     if (!guestId) await ensureGuestId();
-    // Keep billing email — re-verify Pro from Supabase (don't wipe paid access)
-    await syncAccess(false);
     updateAuthPanels();
     updatePlanBadge();
     switchTab('boost');
-  });
-
-  async function runManualVerify() {
-    const input = $('billingEmailInput');
-    const typed = (input?.value || '').trim().toLowerCase();
-    if (typed.includes('@')) {
-      await storageSet({ vb_billing_email: typed, auralis_email: typed });
-    }
-    const hints = [$('planVerifyHint'), $('planVerifyHintSignedIn')].filter(Boolean);
-    hints.forEach((h) => {
-      h.textContent = 'Checking Supabase…';
-      h.className = 'settings-hint';
-    });
-    await syncAccess(false);
-    hints.forEach((h) => {
-      if (!h.textContent) {
-        h.textContent = isPro() ? 'Pro verified.' : 'Free — no active Pro for this email.';
-        h.className = 'settings-hint' + (isPro() ? ' is-ok' : '');
-      }
-    });
-  }
-
-  $('verifyPlanBtn')?.addEventListener('click', runManualVerify);
-  $('verifyPlanBtnSignedIn')?.addEventListener('click', runManualVerify);
-  $('billingEmailInput')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      runManualVerify();
-    }
   });
 }
 
@@ -1366,7 +1473,6 @@ async function loadProfile() {
     if ($('guestIdDisplay') && guestId) $('guestIdDisplay').textContent = guestId;
     return;
   }
-  if ($('profileEmail')) $('profileEmail').value = session.email || '';
   if ($('igName')) $('igName').textContent = session.display_name || session.email || '—';
   if ($('igEmail')) $('igEmail').textContent = session.email || '';
   if ($('statPlan')) $('statPlan').textContent = isPro() ? 'Pro' : 'Free';
@@ -1387,17 +1493,12 @@ async function loadProfile() {
     if ((p.avatar_url || session.avatar_url) && $('avatarPreview')) {
       $('avatarPreview').src = p.avatar_url || session.avatar_url;
     }
-    if ($('profileEmail')) $('profileEmail').value = p.email || session.email || '';
     if ($('igName')) $('igName').textContent = p.display_name || session.display_name || '—';
     if ($('igBio')) $('igBio').textContent = p.bio || '';
     if ($('igEmail')) $('igEmail').textContent = p.email || session.email || '';
     if ($('statPlan')) $('statPlan').textContent = isPro() ? 'Pro' : 'Free';
     if (p.country && $('countrySelect')) $('countrySelect').value = p.country;
-    if (typeof data.listen_seconds === 'number') {
-      localListenSec = Math.max(localListenSec, data.listen_seconds);
-      await storageSet({ vb_listen_local: localListenSec });
-      updateListenBadge();
-    }
+    
     const pending = await storageGet(['vb_pending_display_name', 'vb_pending_avatar']);
     if (pending.vb_pending_display_name && !$('displayName').value) {
       $('displayName').value = pending.vb_pending_display_name;
@@ -1408,61 +1509,5 @@ async function loadProfile() {
     }
   } catch {
     /* offline */
-  }
-}
-
-/* ── Listen heartbeat (music sites only) ────────────────────── */
-
-function startHeartbeat() {
-  stopHeartbeat();
-  heartbeatTimer = setInterval(tickListen, 30000);
-  tickListen();
-}
-
-function stopHeartbeat() {
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  heartbeatTimer = null;
-}
-
-async function tickListen() {
-  // Prefer sites where content script confirmed media + boost
-  const usage = await storageGet(['vb_site_usage', 'vb_active_boost_host']);
-  const map = usage.vb_site_usage || {};
-  let host = usage.vb_active_boost_host || hostFromUrl(tabUrl);
-
-  if (!globalThis.VBMusicSites?.isMusicHost(host)) {
-    // Fall back to any music host with recent local seconds
-    host = Object.keys(map).find((h) => VBMusicSites.isMusicHost(h)) || null;
-  }
-  if (!host || !globalThis.VBMusicSites.isMusicHost(host)) {
-    updateListenBadge();
-    return;
-  }
-
-  // Only count when boost is On (popup state) OR we have active host from content
-  if (!state.powered && !usage.vb_active_boost_host) {
-    updateListenBadge();
-    return;
-  }
-
-  const add = 30;
-  map[host] = (Number(map[host]) || 0) + add;
-  localListenSec = Object.values(map).reduce((n, v) => n + (Number(v) || 0), 0);
-  await storageSet({ vb_site_usage: map, vb_listen_local: localListenSec });
-  updateListenBadge();
-
-  if (!hasSession()) return;
-  try {
-    await apiJson('/api/usage/heartbeat', {
-      method: 'POST',
-      body: {
-        seconds: add,
-        site_host: host,
-        country: $('countrySelect')?.value || 'XX',
-        display_name: ($('displayName')?.value || '').trim() || undefined
-      }
-    });
-  } catch {
-    /* keep local */
   }
 }

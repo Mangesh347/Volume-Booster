@@ -1,5 +1,84 @@
 # Changelog
 
+## 2.11.7 — 2026-09-16
+
+- Added a verified-Pro popup treatment that preserves the existing layout while elevating the header, plan strip, dial, waveform, active tab, and Pro card.
+- Added cumulative calendar renewals: Monthly adds one calendar month, Yearly adds one calendar year, mixed purchases become Stacked access, and Lifetime can never be shortened.
+- Added safe automatic Lifetime repair: provider-backed Lifetime ledger rows backfill incorrect profiles during migration and self-heal authenticated access checks thereafter.
+- Updated the popup and payment confirmation to show the authoritative cumulative deadline with local date and time.
+- Confirmed public pricing everywhere: $1.99/month, $12.99/year (Best value), and $100 lifetime.
+- Moved Supabase sessions, email, profile, and plan snapshots out of persistent Chrome storage into trusted `chrome.storage.session`; logout now clears access immediately.
+- Added authenticated Supabase Realtime profile updates, a 30-second open-popup fallback check, a five-minute service-worker check, and exact expiry handling.
+- Payment success now sends only a generic refresh signal; only authenticated server access can change the popup to Pro.
+- Hardened payment finalization with immutable Supabase intents, atomic/idempotent RPC updates, lifetime-preserving renewals, strict provider reconciliation, and persistent rate limiting.
+- Added exact PayPal capture-count/final-capture/payee checks with an idempotency key, plus Razorpay payment-and-order reconciliation for captured state, amount, currency, receipt, and plan notes.
+- Added immutable intent guards, unique provider payment IDs, replay-ID rejection, provider facts passed into the finalization RPC, and email-scoped renewal locks.
+- Removed the nonce-free Google fallback and guarded refresh/plan writes against completing after logout or account replacement.
+- Removed the page-visible audio command bridge and web-accessible engine; DSP now runs in the extension’s isolated world with bounded commands.
+- Replaced wildcard API CORS and internal errors with exact origins, request limits, safe responses, and website security headers.
+- Disabled the retired listening analytics and leaderboard endpoints.
+
+## 2.11.6 — 2026-09-16
+
+- Rebranded all current website, checkout, legal, support, and extension surfaces to XCoda.
+- Aligned public plans with the extension: Free 300%; Pro 600%; $1.99 monthly, $12.99 yearly, $100 lifetime.
+- Removed internal database/sync and automatic-downgrade wording from customer-facing UI.
+- Rebuilt the payment-confirmation page in XCoda’s monochrome audio theme with purchase details, activation guidance, support links, and responsive/accessibility states.
+- Added payment reference handoff from checkout to confirmation and customer-safe payment errors.
+
+## 2.11.5 — 2026-09-16
+
+- Restored only the XCoda v2.11.0 volume-boosting DSP curve, soft clipping, high-frequency control, output gain, and compressor behavior.
+- Google sign-in, UI, plans, logo, and all other current features remain unchanged.
+
+## 2.11.4 — 2026-09-16
+
+- **Google sign-in fixed (double account chooser + fake Redirect URL error):**
+  - One OAuth window only (removed Supabase `/authorize` → fallback chain; `chrome.identity` strips `#access_token` so that path always “failed” and opened Google again).
+  - Nonce per Supabase docs: SHA-256 hash → Google, raw → Supabase; clear error if still blocked.
+  - Redirect URL message no longer shown for nonce failures (your Supabase redirect was already correct).
+
+## 2.11.3 — 2026-09-16
+
+- New original XCoda mark: B/W five-bar “coda swell” EQ (asymmetric heights) — idea only from audio waveform pattern; drawn fresh (PNG 16–128 + `icons/logo.svg`), not copied from any asset.
+
+## 2.11.2 — 2026-09-16
+
+- **Continue with Google fixed**: id_token fallback sends the same nonce to Google and Supabase (core mismatch bug).
+- Popup waits on service-worker OAuth response + storage errors (no silent hang).
+- Removed leftover “Already paid?” / manual Verify UI and dead billing-email field refs.
+- DSP stabilized: fixed compressor + longer ramps + static presence (no pumping / fluctuating boost).
+- Pixel nearest-neighbor B/W music-note + EQ logo (16→128).
+
+## 2.11.1 — 2026-09-16
+
+- Removed all listen/usage counting (no YouTube Xm, no listen badges, no heartbeat).
+- You tab cleaned: Google-first guest; signed-in shows avatar, email, plan only.
+- Google sign-in sync via `storage.onChanged` so Pro/You update after OAuth.
+- Fixed `Extension context invalidated` spam in content script after reload.
+- New B/W music-note icon (no brand letter); larger header mark.
+- DSP: full loudness restored + premium theater clarity (presence), not quieter.
+
+## 2.11.0 — 2026-09-16
+
+- **Rebrand:** XCoda — Clear Audio Booster.
+- **Free boost to 300%**; Pro unlocks 301–600% (PRO badges on gated features).
+- **Leaderboards removed** → **Pro** tab (Free vs Pro, $1.99 / $12.99 best value / $100 lifetime).
+- **Top plan strip:** Guest/Free → View plans; Pro → cycle, email, expiry.
+- **Music Ad Block** highlighted card; only active on music/video hosts while media plays.
+- **Per-site auto-save** of volume/settings (debounced).
+- **Upgrade requires Google sign-in**, then checkout.
+- **Pro only after PayPal capture / Razorpay HMAC** — no SIM/optimistic unlock; activate is read-only.
+- Soft DSP retune for cleaner boost; Material B/W icons; Chromium MV3 paths.
+
+## 2.10.1 — 2026-09-15
+
+- **Google login fixed**: OAuth runs in the service worker so the popup closing mid-flow no longer aborts sign-in.
+- Primary path: Supabase `/auth/v1/authorize?provider=google` → `chromiumapp.org` redirect; fallback: Google `id_token` → Supabase (nonce retry).
+- On reopen, popup picks up success/error from storage (`vb_google_auth_*`).
+- **Auto Pro / Free**: popup + background refresh JWT, verify via `/api/user/access` + billing email, expire locally, and schedule an alarm at plan deadline → Free.
+- Restored missing `vb-adblock.js` (content script load was broken).
+
 ## 2.9.9 — 2026-09-15
 
 - Extension verifies Pro/Free against Supabase by billing email on every popup open.
@@ -93,14 +172,14 @@
 
 ## 2.4.0 — 2026-09-14
 
-- Simplified SoundBlast Material UI: On/Off, Boost dial, presets, Sound Quality only.
+- Simplified the original extension UI: On/Off, Boost dial, presets, Sound Quality only.
 - Mathematical concentric wavy rings (not organic blobs); rotate only when On.
 - Quiet–Max slider, Safe Boost pill, settings gear for Auto/Save/Reset/Pro.
 - Softer DSP ramps + high-boost compression for clear, smooth volume.
 
 ## 2.3.0 — 2026-09-14
 
-- Auralis website + PayPal/Razorpay checkout (see `website/`).
+- Initial marketing website + PayPal/Razorpay checkout (see `website/`).
 
 ## 2.2.0 — 2026-09-14
 

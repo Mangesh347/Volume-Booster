@@ -1,6 +1,6 @@
 /**
- * Auralis Pro — server-authoritative pricing (mirrors Screen Time Tracker structure).
- * $3.99 / $29.99 / $79.99 + 18% GST.
+ * XCoda Pro — server-authoritative pricing.
+ * $1.99 / $12.99 / $100.00 + 18% GST.
  */
 
 export const GST_RATE = 0.18;
@@ -8,27 +8,27 @@ export const GST_RATE = 0.18;
 export const PLANS = {
   monthly: {
     id: "monthly",
-    name: "Volume Booster Pro Monthly",
-    priceUSD: 3.99,
+    name: "XCoda Pro Monthly",
+    priceUSD: 1.99,
     billingText: "per month",
     days: 30,
-    desc: "Volume Booster Pro — Monthly"
+    desc: "XCoda Pro — Monthly"
   },
   yearly: {
     id: "yearly",
-    name: "Volume Booster Pro Yearly",
-    priceUSD: 29.99,
+    name: "XCoda Pro Yearly",
+    priceUSD: 12.99,
     billingText: "per year",
     days: 365,
-    desc: "Volume Booster Pro — Yearly"
+    desc: "XCoda Pro — Yearly (best value)"
   },
   lifetime: {
     id: "lifetime",
-    name: "Volume Booster Pro Lifetime",
-    priceUSD: 79.99,
+    name: "XCoda Pro Lifetime",
+    priceUSD: 100.0,
     billingText: "one-time",
     days: null,
-    desc: "Volume Booster Pro — Lifetime"
+    desc: "XCoda Pro — Lifetime"
   }
 };
 
@@ -58,7 +58,7 @@ export function quoteUSD(cycle) {
     billingText: plan.billingText,
     days: plan.days,
     desc: plan.desc,
-    product: "auralis"
+    product: "volume_booster"
   };
 }
 

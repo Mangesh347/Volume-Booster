@@ -9,7 +9,7 @@ Patterns extracted (ideas only):
 - Named scene/preset switching
 - Compact vs expanded control depth
 
-Original SoundBlast expression (not copied):
+Original XCoda expression (not copied):
 - Material black/white only (no FxSound red accents)
 - Rotating wavy SVG rings as signature visual
 - Morphing organic card radii

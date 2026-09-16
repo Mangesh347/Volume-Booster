@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Checkout — Volume Booster Pro</title>
-  <meta name="description" content="Upgrade to Volume Booster Pro. Secure checkout from $3.99/mo. Pro unlocks on your billing email." />
+  <title>Checkout — XCoda Pro</title>
+  <meta name="description" content="Choose XCoda Pro Monthly, Yearly, or Lifetime and pay securely with PayPal or Razorpay." />
   <link rel="stylesheet" href="checkout.css" />
   <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
 </head>
@@ -12,12 +12,15 @@
   <div class="ck-shell" id="checkoutShell">
     <aside class="ck-left" aria-label="Order summary">
       <a class="ck-back" href="/">Home</a>
-      <div class="ck-brand"><span class="ck-brand-mark">V</span> Volume Booster</div>
-      <p class="ck-kicker">Get Pro and take your volume further</p>
-      <p class="ck-price-hero" id="heroPrice">$35.39 per year</p>
+      <div class="ck-brand">
+        <img class="ck-brand-logo-mark" src="icons/icon48.png" width="28" height="28" alt="">
+        XCoda
+      </div>
+      <p class="ck-kicker">XCoda Pro · secure checkout</p>
+      <p class="ck-price-hero" id="heroPrice">$15.33 per year</p>
 
       <div class="ck-test on ck-trust" id="testBanner">
-        Live payments are on. You will be charged for real. Pro unlocks on the billing email you enter.
+        Secure live payment. Review your total before you continue.
       </div>
 
       <div class="ck-currency" role="group" aria-label="Currency">
@@ -26,22 +29,22 @@
       </div>
 
       <div class="ck-plan-pills" role="tablist" aria-label="Billing cycle">
-        <button type="button" data-cycle="monthly" data-label-usd="Monthly · $3.99" data-label-inr="Monthly · ₹380">Monthly · $3.99</button>
-        <button type="button" class="active" data-cycle="yearly" data-label-usd="Yearly · $29.99" data-label-inr="Yearly · ₹2,853">Yearly · $29.99</button>
-        <button type="button" data-cycle="lifetime" data-label-usd="Lifetime · $79.99" data-label-inr="Lifetime · ₹7,609">Lifetime · $79.99</button>
+        <button type="button" data-cycle="monthly" data-label-usd="Monthly · $1.99" data-label-inr="Monthly · ₹190">Monthly · $1.99</button>
+        <button type="button" class="active" data-cycle="yearly" data-label-usd="Yearly · $12.99 · Best value" data-label-inr="Yearly · ₹1,236 · Best value">Yearly · $12.99 · Best value</button>
+        <button type="button" data-cycle="lifetime" data-label-usd="Lifetime · $100" data-label-inr="Lifetime · ₹9,512">Lifetime · $100</button>
       </div>
 
       <div class="ck-product">
         <div class="ck-product-top">
-          <div class="ck-product-ico">V</div>
+          <img class="ck-product-ico" src="icons/icon48.png" width="44" height="44" alt="" />
           <div style="flex:1">
-            <h2>Volume Booster Pro</h2>
-            <p>Max 600% soft-clear boost, full scenes, music ad block, unlimited auto-apply. Unlocks on the email you enter below.</p>
+            <h2>XCoda Pro</h2>
+            <p>600% clear boost, premium sound scenes, Music Ad Block, and remembered site settings.</p>
           </div>
-          <div class="ck-product-price" id="productPrice">$29.99</div>
+          <div class="ck-product-price" id="productPrice">$12.99</div>
         </div>
         <div class="ck-annual">
-          <span id="annualHint">Yearly is the smart pick · about $2.50 / month</span>
+          <span id="annualHint">Yearly saves 46% · about $1.08 / month</span>
           <label class="ck-switch" title="Toggle yearly">
             <input type="checkbox" id="annualToggle" checked />
             <span></span>
@@ -50,9 +53,9 @@
       </div>
 
       <div class="ck-breakdown">
-        <div class="ck-row"><span>Subtotal</span><strong id="rowSubtotal">$29.99</strong></div>
-        <div class="ck-row"><span id="taxLabel">GST (18%)</span><strong id="rowGst">$5.40</strong></div>
-        <div class="ck-row total"><span>Total due today</span><strong id="rowTotal">$35.39</strong></div>
+        <div class="ck-row"><span>Subtotal</span><strong id="rowSubtotal">$12.99</strong></div>
+        <div class="ck-row"><span id="taxLabel">Tax (18%)</span><strong id="rowGst">$2.34</strong></div>
+        <div class="ck-row total"><span>Total due today</span><strong id="rowTotal">$15.33</strong></div>
       </div>
     </aside>
 
@@ -75,7 +78,7 @@
 
       <label class="ck-label" for="buyerEmail">Billing email</label>
       <input class="ck-input" id="buyerEmail" type="email" autocomplete="email"
-        placeholder="The email you use in the extension" required />
+        placeholder="The email you use with XCoda" required />
 
       <label class="ck-label">Card or UPI (Razorpay)</label>
       <div class="ck-card-box">
@@ -88,14 +91,10 @@
 
       <button type="button" class="ck-btn ck-btn-dark" id="payCard">Continue with card / UPI</button>
       <p class="ck-status" id="statusMsg" role="status"></p>
-      <p class="ck-legal" style="opacity:.55;font-size:11px;margin-top:8px">
-        Checkout 2.9.6 · pay, verify, then Pro unlocks
-      </p>
-
       <p class="ck-legal">
         By paying, you authorize Fenwick Labs to charge this payment method for the Pro plan you selected.
-        Monthly and yearly plans end on their renewal date unless you renew. Lifetime is a one-time purchase.
-        No website signup — Pro unlocks in the Chrome extension on this billing email.
+        Monthly and yearly purchases extend your current deadline by one calendar month or year. Lifetime always stays Lifetime.
+        Use the same email in XCoda after checkout.
         <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="refund.html">Refunds</a>
       </p>
       <div class="ck-powered">
@@ -110,7 +109,7 @@
   <script>
     const GST = 0.18;
     let INR_USD_RATE = 95.12;
-    const USD = { monthly: 3.99, yearly: 29.99, lifetime: 79.99 };
+    const USD = { monthly: 1.99, yearly: 12.99, lifetime: 100 };
     let cycle = "yearly";
     let currency = "USD";
 
@@ -158,8 +157,8 @@
       document.getElementById("curINR").classList.toggle("active", currency === "INR");
       updatePlanPillLabels();
       document.getElementById("annualHint").textContent =
-        cycle === "yearly" ? "Yearly is the smart pick · about $2.50 / month" :
-        cycle === "lifetime" ? "Pay once · keep Pro on this email" :
+        cycle === "yearly" ? "Yearly saves 46% · about $1.08 / month" :
+        cycle === "lifetime" ? "Pay once for lifetime Pro access" :
         "Flexible month to month";
     }
     function setStatus(msg, kind) {
@@ -181,13 +180,24 @@
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
       );
     }
+    function customerPaymentError(message, fallback) {
+      const text = String(message || "");
+      if (/supabase|service role|schema|database|environment variable|not configured/i.test(text)) {
+        return "Your payment needs help from XCoda support. Keep your receipt and contact support@fenwicklabs.com.";
+      }
+      return text || fallback;
+    }
 
     /** Unused on-page success — redirect to success.html instead. Kept for safety. */
     function showSuccess(data) {
       const email = (data.email || "").trim().toLowerCase();
-      const q = new URLSearchParams({ email, cycle: data.cycle || cycle, ok: "1" });
-      if (data.expiresAt) q.set("expiresAt", data.expiresAt);
-      location.replace("/success.html?" + q.toString());
+      sessionStorage.setItem("xcoda_payment_confirmation", JSON.stringify({
+        email,
+        cycle: data.cycle || cycle,
+        expiresAt: data.expiresAt || null,
+        reference: data.order_id || data.razorpay_payment_id || ""
+      }));
+      location.replace("/success.html?ok=1");
     }
 
     async function loadConfig() {
@@ -197,7 +207,7 @@
         if (Number(data.inr_usd_rate) > 0) INR_USD_RATE = Number(data.inr_usd_rate);
         const banner = document.getElementById("testBanner");
         if (banner) {
-          banner.textContent = "Live payments are on. You will be charged for real. Pro unlocks on the billing email you enter.";
+          banner.textContent = "Secure live payment. Review your total before you continue.";
         }
       } catch (_) {}
       render();
@@ -212,22 +222,29 @@
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result.success === false || result.supabaseSaved === false) {
-        throw new Error(result.error || "Payment verification failed — Pro was not activated");
+        throw new Error(
+          customerPaymentError(
+            result.error,
+            "We could not confirm the payment. Try again or contact XCoda support."
+          )
+        );
       }
       const email = (result.email || body.email || "").trim().toLowerCase();
       try {
-        localStorage.setItem("vb_billing_email", email);
-        localStorage.setItem("auralis_billing_email", email);
-        if (result.expiresAt) localStorage.setItem("vb_pro_expires_at", result.expiresAt);
-        if (result.cycle) localStorage.setItem("vb_pro_cycle", result.cycle);
+        sessionStorage.setItem("xcoda_payment_confirmation", JSON.stringify({
+          email,
+          cycle: result.cycle || body.cycle || cycle,
+          expiresAt: result.expiresAt || null,
+          reference:
+            result.order_id ||
+            result.razorpay_payment_id ||
+            body.order_id ||
+            body.razorpay_payment_id ||
+            body.razorpay_order_id ||
+            ""
+        }));
       } catch (_) {}
-      const q = new URLSearchParams({
-        email,
-        cycle: result.cycle || body.cycle || cycle,
-        ok: "1"
-      });
-      if (result.expiresAt) q.set("expiresAt", result.expiresAt);
-      location.replace("/success.html?" + q.toString());
+      location.replace("/success.html?ok=1");
     }
 
     // Show error when redirected back from failed verification
@@ -254,7 +271,7 @@
           body: JSON.stringify({ cycle, email: e, product: "volume_booster" })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Order failed");
+        if (!res.ok) throw new Error(customerPaymentError(data.error, "PayPal could not start. Please try again."));
         if (data.approve_url) {
           sessionStorage.setItem("vb_pp_order", JSON.stringify({ order_id: data.order_id, email: e, cycle }));
           location.href = data.approve_url;
@@ -285,7 +302,7 @@
           body: JSON.stringify({ cycle, email: e, product: "volume_booster" })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Order failed");
+        if (!res.ok) throw new Error(customerPaymentError(data.error, "Razorpay could not start. Please try again."));
 
         if (data.mode === "simulated_preview" || !data.order_id || String(data.order_id).startsWith("SIM_")) {
           await grantAfterVerify("/api/razorpay/verify-payment", {
@@ -306,7 +323,7 @@
           key: data.key_id,
           amount: data.amount,
           currency: data.currency || "INR",
-          name: "Volume Booster Pro",
+          name: "XCoda Pro",
           description: `Pro ${cycle}`,
           order_id: data.order_id,
           prefill: { email: e },

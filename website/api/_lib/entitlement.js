@@ -1,5 +1,5 @@
 /**
- * Volume Booster entitlement — payment-verified Pro + Supabase expiry.
+ * XCoda entitlement — payment-verified Pro access.
  */
 import crypto from "crypto";
 import { sbRest, findUserIdByEmail, supabaseConfig, verifyUserJwt } from "./supabase.js";
@@ -8,12 +8,7 @@ import { computeExpiresAtRenewal } from "./pricing.js";
 export const PRODUCT = "volume_booster";
 
 function secret() {
-  return (
-    process.env.ENTITLEMENT_SECRET ||
-    process.env.PAYPAL_CLIENT_SECRET ||
-    process.env.RAZORPAY_KEY_SECRET ||
-    ""
-  );
+  return process.env.ENTITLEMENT_SECRET || "";
 }
 
 export function normalizeEmail(email) {
@@ -47,6 +42,8 @@ export function verifyLicense(license) {
   if (!raw) return { ok: false, error: "Missing license" };
 
   if (raw.startsWith("VBDEV.")) {
+    const key = secret();
+    if (key) return { ok: false, error: "Dev licenses disabled on this server" };
     try {
       const payload = JSON.parse(Buffer.from(raw.slice(6), "base64url").toString("utf8"));
       return validatePayload(payload, "unsigned_dev");
@@ -198,47 +195,117 @@ export async function getActiveEntitlementForEmail(email) {
   if (!em) return null;
   await expireStaleEntitlements(em);
   const ent = await sbRest(
-    `vb_entitlements?email=eq.${encodeURIComponent(em)}&product=eq.${PRODUCT}&status=eq.active&pro=eq.true&select=*&order=updated_at.desc&limit=5`
+    `vb_entitlements?email=eq.${encodeURIComponent(em)}&product=eq.${PRODUCT}` +
+      `&provider=in.(paypal,razorpay)&order_id=not.is.null` +
+      `&status=eq.active&pro=eq.true&select=*&order=expires_at.desc.nullsfirst,updated_at.desc&limit=100`
   );
   if (!ent.ok || !Array.isArray(ent.data)) return null;
-  for (const row of ent.data) {
-    if (!row.expires_at || new Date(row.expires_at).getTime() > Date.now()) return row;
-  }
-  return null;
+  const active = ent.data.filter(
+    (row) => !row.expires_at || new Date(row.expires_at).getTime() > Date.now()
+  );
+  if (!active.length) return null;
+  const lifetime = active.find((row) => row.cycle === "lifetime" && !row.expires_at);
+  if (lifetime) return { ...lifetime, cycle: "lifetime", expires_at: null };
+
+  const latest = active.reduce((best, row) => {
+    if (!best) return row;
+    return new Date(row.expires_at).getTime() > new Date(best.expires_at).getTime()
+      ? row
+      : best;
+  }, null);
+  const cycles = new Set(active.map((row) => row.cycle));
+  return {
+    ...latest,
+    cycle: cycles.has("monthly") && cycles.has("yearly") ? "stacked" : latest.cycle
+  };
 }
 
 export async function getAccessForUser({ userId, email }) {
   const em = normalizeEmail(email);
   await expireUserAccess({ userId, email: em });
 
+  let profile = null;
   if (userId) {
     const prof = await sbRest(
       `vb_profiles?user_id=eq.${encodeURIComponent(userId)}&select=*&limit=1`
     );
     if (prof.ok && Array.isArray(prof.data) && prof.data[0]) {
-      const p = prof.data[0];
-      if (isProActive(p.plan, p.expires_at)) {
-        return { plan: "pro", cycle: p.cycle, expiresAt: p.expires_at, email: p.email || em };
-      }
-      if (p.plan === "pro" && p.expires_at && new Date(p.expires_at).getTime() <= Date.now()) {
+      profile = prof.data[0];
+      if (
+        profile.plan === "pro" &&
+        profile.expires_at &&
+        new Date(profile.expires_at).getTime() <= Date.now()
+      ) {
         await downgradeProfileToFree(userId);
+        profile = { ...profile, plan: "free", cycle: null, expires_at: null };
       }
     }
   }
 
-  if (em) {
-    const row = await getActiveEntitlementForEmail(em);
-    if (row) {
+  const ledger = em ? await getActiveEntitlementForEmail(em) : null;
+  const profileActive = profile && isProActive(profile.plan, profile.expires_at);
+
+  // Lifetime is irreversible when a provider-backed Lifetime ledger row exists.
+  const verifiedLifetime =
+    ledger?.cycle === "lifetime" &&
+    !ledger.expires_at &&
+    ["paypal", "razorpay"].includes(ledger.provider) &&
+    !!ledger.order_id;
+  if (verifiedLifetime) {
+    if (
+      userId &&
+      (!profileActive || profile.cycle !== "lifetime" || profile.expires_at)
+    ) {
+      await upgradeProfileToPro({
+        userId,
+        email: em,
+        cycle: "lifetime",
+        expiresAt: null
+      });
+    }
+    return { plan: "pro", cycle: "lifetime", expiresAt: null, email: em };
+  }
+
+  if (ledger) {
+    const ledgerExpiry = ledger.expires_at
+      ? new Date(ledger.expires_at).getTime()
+      : Infinity;
+    const profileExpiry = profileActive
+      ? (profile.expires_at ? new Date(profile.expires_at).getTime() : Infinity)
+      : -Infinity;
+    const shouldRepair =
+      !profileActive ||
+      ledgerExpiry > profileExpiry ||
+      (
+        ledgerExpiry === profileExpiry &&
+        ledger.cycle === "stacked" &&
+        profile.cycle !== "stacked"
+      );
+    if (shouldRepair) {
       if (userId) {
         await upgradeProfileToPro({
           userId,
           email: em,
-          cycle: row.cycle,
-          expiresAt: row.expires_at
+          cycle: ledger.cycle,
+          expiresAt: ledger.expires_at
         });
       }
-      return { plan: "pro", cycle: row.cycle, expiresAt: row.expires_at, email: em };
+      return {
+        plan: "pro",
+        cycle: ledger.cycle,
+        expiresAt: ledger.expires_at,
+        email: em
+      };
     }
+  }
+
+  if (profileActive) {
+    return {
+      plan: "pro",
+      cycle: profile.cycle,
+      expiresAt: profile.expires_at,
+      email: profile.email || em
+    };
   }
 
   return { plan: "free", cycle: null, expiresAt: null, email: em || null };

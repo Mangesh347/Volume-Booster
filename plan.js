@@ -1,12 +1,13 @@
-/** Auralis Pro plan helpers */
+/** XCoda Pro plan helpers */
 (function (global) {
   const SITE_URL = 'https://volume-booster-ten.vercel.app';
-  const FREE_MAX_VOLUME = 200;
+  const FREE_MAX_VOLUME = 300;
   const PRO_SCENES = new Set(['bass', 'vocal', 'cinema', 'lofi', 'slowreverb']);
 
   const Plan = {
     SITE_URL,
     FREE_MAX_VOLUME,
+    PRODUCT_NAME: 'XCoda',
     checkoutUrl(cycle, email) {
       const u = new URL('/checkout.html', SITE_URL);
       u.searchParams.set('cycle', cycle || 'yearly');
@@ -33,8 +34,11 @@
     },
     canUseAdBlock(entitlement) {
       return this.isPro(entitlement);
+    },
+    isProScene(mode) {
+      return PRO_SCENES.has(mode);
     }
   };
 
-  global.AuralisPlan = Plan;
+  global.XCodaPlan = Plan;
 })(typeof globalThis !== 'undefined' ? globalThis : window);

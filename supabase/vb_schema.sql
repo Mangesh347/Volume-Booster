@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS vb_profiles (
   user_id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email            TEXT,
   plan             TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
-  cycle            TEXT CHECK (cycle IN ('monthly', 'yearly', 'lifetime')),
+  cycle            TEXT CHECK (cycle IN ('monthly', 'yearly', 'stacked', 'lifetime')),
   expires_at       TIMESTAMPTZ,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()

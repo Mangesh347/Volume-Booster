@@ -1,15 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "SoundBlast — Volume Booster",
-  "version": "2.9.9",
-  "description": "Pay → verify → Pro on billing email. Auto Free when plan expires.",
-  "permissions": ["activeTab", "scripting", "storage", "tabs", "identity", "alarms"],
+  "name": "XCoda — Clear Audio Booster",
+  "version": "2.11.7",
+  "description": "Boost Chrome audio to 300% free. Pro unlocks 600%, premium sound scenes, and Music Ad Block.",
+  "permissions": ["scripting", "storage", "tabs", "identity", "alarms"],
   "host_permissions": [
-    "<all_urls>",
-    "https://volume-booster-ten.vercel.app/*",
-    "https://accounts.google.com/*",
-    "https://www.googleapis.com/*",
-    "https://*.supabase.co/*"
+    "<all_urls>"
   ],
   "externally_connectable": {
     "matches": [
@@ -18,6 +14,7 @@
   },
   "action": {
     "default_popup": "popup.html",
+    "default_title": "XCoda",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -31,15 +28,9 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["music-sites.js", "vb-adblock.js", "injected.js", "content.js"],
       "run_at": "document_start",
       "all_frames": true
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["injected.js"],
-      "matches": ["<all_urls>"]
     }
   ],
   "icons": {

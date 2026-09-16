@@ -1,5 +1,5 @@
 /**
- * Supabase REST helpers for Volume Booster (service role only).
+ * Database REST helpers for XCoda (service role only).
  */
 export function supabaseConfig() {
   const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");

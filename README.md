@@ -1,6 +1,6 @@
-# Volume Booster
+# XCoda
 
-Chrome extension + marketing site for Soft Clear volume boost.
+Chrome extension and marketing site for clear, powerful tab audio.
 
 ## Website
 

@@ -1,8 +1,8 @@
-// SoundBlast INJECTED ENGINE v2.2 — soft, clear boost (page context)
+// XCoda isolated-world audio engine — soft, clear boost
 
 (function () {
-  if (window.__SB_INJECTED) return;
-  window.__SB_INJECTED = true;
+  if (globalThis.__XCODA_ENGINE_LOADED) return;
+  globalThis.__XCODA_ENGINE_LOADED = true;
 
   const WIN = window;
   const NAT_CTX = WIN.AudioContext || WIN.webkitAudioContext;
@@ -62,20 +62,20 @@
 
     clarityFilter = ctx.createBiquadFilter();
     clarityFilter.type = 'peaking';
-    clarityFilter.frequency.value = 2800;
-    clarityFilter.Q.value = 0.7;
-    clarityFilter.gain.value = 2.5;
+    clarityFilter.frequency.value = 3200;
+    clarityFilter.Q.value = 0.75;
+    clarityFilter.gain.value = 3.2;
 
     presenceFilter = ctx.createBiquadFilter();
     presenceFilter.type = 'peaking';
-    presenceFilter.frequency.value = 4500;
-    presenceFilter.Q.value = 0.85;
-    presenceFilter.gain.value = 1;
+    presenceFilter.frequency.value = 4800;
+    presenceFilter.Q.value = 0.8;
+    presenceFilter.gain.value = 1.8;
 
     hiShelf = ctx.createBiquadFilter();
     hiShelf.type = 'highshelf';
-    hiShelf.frequency.value = 8500;
-    hiShelf.gain.value = -1.5;
+    hiShelf.frequency.value = 9000;
+    hiShelf.gain.value = -1.0;
 
     // Soft compressor — smooth dynamics, less pumping
     compressor = ctx.createDynamicsCompressor();
@@ -216,8 +216,8 @@
     const t = ctx.currentTime;
     lastVolume = g;
     const ui = Math.max(0, g);
-    // Soft loudness curve: UI still shows 600%, actual gain stays comfortable
-    const soft = ui <= 1 ? ui : 1 + Math.pow(ui - 1, 0.82) * 0.92;
+    // XCoda v2.11.0 volume-boosting curve
+    const soft = ui <= 1 ? ui : 1 + Math.pow(ui - 1, 0.78) * 0.88;
     const target = powered ? soft : 1;
 
     masterGain.gain.cancelScheduledValues(t);
@@ -225,12 +225,12 @@
 
     waveshaper.curve = softClipCurve(Math.min(14 + target * 6, 48));
 
-    // Tame highs as boost rises — prevents harshness
+    // Tame highs as boost rises — v2.11.0 behavior
     const hiCut = target <= 1 ? -1.5 : -1.5 - Math.min((target - 1) * 1.1, 5);
     hiShelf.gain.setTargetAtTime(hiCut, t, 0.16);
 
     const mk = target > 1 ? 1 + (target - 1) * 0.028 : 1;
-    outGain.gain.setTargetAtTime(Math.min(mk, 1.18), t, 0.16);
+    outGain.gain.setTargetAtTime(Math.min(mk, 1.12), t, 0.18);
 
     if (target >= 2.5) {
       compressor.threshold.setTargetAtTime(-24, t, 0.18);
@@ -241,13 +241,24 @@
     }
   }
 
-  window.addEventListener('__sb_cmd', (e) => {
-    const { action, value } = e.detail;
+  const ALLOWED_ACTIONS = new Set([
+    'resume', 'setPower', 'setVolume', 'setMode', 'setClarity',
+    'setBassBoost', 'setSpace', 'setWiden', 'setFreq', 'setReverb',
+    'setPitch', 'setPan', 'ping', 'adTick'
+  ]);
+  const ALLOWED_MODES = new Set(['softclear', 'bass', 'lofi', 'vocal', 'cinema', 'normal']);
+  const bounded = (value, min, max, fallback = min) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+  };
+
+  function command(action, value) {
+    if (!ALLOWED_ACTIONS.has(action)) return { ok: false, reason: 'invalid_action' };
     if (action === 'resume' && sharedCtx) {
       sharedCtx.resume().catch(() => {});
-      return;
+      return { ok: true };
     }
-    if (!sharedCtx || !masterGain) return;
+    if (!sharedCtx || !masterGain) return { ok: false, reason: 'not_ready' };
     const ctx = sharedCtx;
     const t = ctx.currentTime;
 
@@ -257,64 +268,114 @@
         applyVolume(lastVolume);
         break;
       case 'setVolume':
-        applyVolume(parseFloat(value));
+        applyVolume(bounded(value, 0, 6, 1));
         break;
       case 'setMode':
+        if (!ALLOWED_MODES.has(value)) return { ok: false, reason: 'invalid_mode' };
         applyMode(ctx, value);
         break;
       case 'setClarity': {
-        const c = parseFloat(value);
+        const c = bounded(value, 0, 1, 0);
         // Mild presence — clear speech without sharp edges
         clarityFilter.gain.setTargetAtTime(c * 5.5, t, 0.12);
         presenceFilter.gain.setTargetAtTime(c * 2.2, t, 0.12);
         break;
       }
       case 'setBassBoost': {
-        const b = parseFloat(value);
+        const b = bounded(value, 0, 1, 0);
         bassFilter.gain.setTargetAtTime(b * 8, t, 0.12);
         break;
       }
       case 'setSpace': {
-        const w = parseFloat(value);
+        const w = bounded(value, 0, 1, 0);
         wetGain.gain.setTargetAtTime(w * 0.32, t, 0.14);
         dryGain.gain.setTargetAtTime(1 - w * 0.18, t, 0.14);
         if (w > 0.05) makeImpulse(ctx, 1.3 + w * 1.4, 0.75);
         break;
       }
       case 'setWiden': {
-        const w = parseFloat(value);
+        const w = bounded(value, 0, 1, 0);
         // Subtle stereo space without loudness jump
         widenGainL.gain.setTargetAtTime(1 + w * 0.1, t, 0.12);
         widenGainR.gain.setTargetAtTime(1 + w * 0.12, t, 0.12);
         break;
       }
       case 'setFreq':
-        bassFilter.frequency.setTargetAtTime(parseFloat(value), t, 0.1);
+        bassFilter.frequency.setTargetAtTime(bounded(value, 20, 20000, 220), t, 0.1);
         break;
       case 'setReverb': {
-        const w = parseFloat(value);
+        const w = bounded(value, 0, 1, 0);
         wetGain.gain.setTargetAtTime(w, t, 0.1);
         dryGain.gain.setTargetAtTime(1 - w * 0.35, t, 0.1);
         break;
       }
       case 'setPitch':
         document.querySelectorAll('audio,video').forEach((el) => {
-          el.playbackRate = parseFloat(value);
+          el.playbackRate = bounded(value, 0.25, 4, 1);
           try { el.preservesPitch = true; } catch (_) {}
         });
         break;
       case 'setPan':
-        if (panner) panner.pan.setTargetAtTime(Math.max(-1, Math.min(1, parseFloat(value))), t, 0.08);
+        if (panner) panner.pan.setTargetAtTime(bounded(value, -1, 1, 0), t, 0.08);
         break;
       case 'ping':
-        window.dispatchEvent(new CustomEvent('__sb_pong', {
-          detail: {
-            ok: true,
-            hooked: [...document.querySelectorAll('audio,video')].filter((el) => hooked.has(el)).length
+        return {
+          ok: true,
+          hooked: [...document.querySelectorAll('audio,video')].filter((el) => hooked.has(el)).length
+        };
+      case 'adTick': {
+        // Page-context music/video ad shield (YouTube skip/seek is more reliable here)
+        const adOn = !!value;
+        const skipBtns = document.querySelectorAll(
+          '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button[aria-label*="Skip ad" i], .ytp-ad-overlay-close-button'
+        );
+        skipBtns.forEach((btn) => {
+          try { btn.click(); } catch (_) {}
+        });
+        const video =
+          document.querySelector('video.html5-main-video') ||
+          document.querySelector('#movie_player video') ||
+          document.querySelector('video');
+        const adDom = document.querySelector(
+          '.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, ytd-player[playing-ad]'
+        );
+        if (!video) break;
+        if (adOn || adDom) {
+          if (!video.dataset.vbAd) {
+            video.dataset.vbAd = '1';
+            video.dataset.vbWasMuted = video.muted ? '1' : '0';
+            video.dataset.vbRate = String(video.playbackRate || 1);
           }
-        }));
+          try { video.muted = true; } catch (_) {}
+          const dur = Number(video.duration);
+          if (Number.isFinite(dur) && dur > 0 && dur <= 180) {
+            try {
+              if (video.currentTime < dur - 0.35) video.currentTime = Math.max(0, dur - 0.2);
+            } catch (_) {}
+          } else {
+            try { video.playbackRate = 16; } catch (_) {}
+          }
+        } else if (video.dataset.vbAd) {
+          try {
+            video.muted = video.dataset.vbWasMuted === '1';
+            const rate = parseFloat(video.dataset.vbRate || '1');
+            video.playbackRate = Number.isFinite(rate) && rate > 0 ? rate : 1;
+          } catch (_) {}
+          delete video.dataset.vbAd;
+          delete video.dataset.vbWasMuted;
+          delete video.dataset.vbRate;
+        }
         break;
+      }
     }
+    return { ok: true };
+  }
+
+  Object.defineProperty(globalThis, 'XCodaEngine', {
+    value: Object.freeze({ command }),
+    configurable: false,
+    enumerable: false,
+    writable: false
   });
 
   function applyMode(ctx, mode) {
