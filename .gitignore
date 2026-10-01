@@ -12,3 +12,7 @@ build/
 *.zip
 .idea/
 .vscode/
+.env.local
+.env.*.local
+ENV_PASTE.txt
+*.pem
