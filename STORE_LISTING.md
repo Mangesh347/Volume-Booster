@@ -1,98 +1,100 @@
-# XCoda Chrome Web Store listing
+# XCoda — Chrome Web Store dashboard, section by section (2.12.x)
 
-## Title
+Images: `Coco\Extensions\Studio\store-assets\xcoda\` (all JPEG, no transparency, exact sizes).
 
-XCoda — Clear Audio Booster
+## Store listing
+**Title (from package):** XCoda – Volume Booster, Equalizer & Bass Boost
+**Summary (from package):** Boost tab volume up to 600%, add bass, make voices clear and mix every playing tab. Free up to 300%. No ads, no tracking.
+**Category:** Tools (keep) · **Language:** English (United States)
 
-## Summary
+**Description** (paste as is; leads with what people search: volume booster, sound booster, bass boost, equalizer, louder):
+```
+Too quiet? XCoda makes any Chrome tab louder, clearer and richer, in one tap.
 
-Boost Chrome audio up to 300% with XCoda. Pro adds 600% boost, sound scenes, and Music Ad Block.
+🔊 VOLUME BOOSTER UP TO 600%
+Turn quiet videos, music, podcasts and calls up beyond Chrome's normal maximum. Free up to 300%, up to 600% with Pro.
 
-## Detailed description
+🎚 ONE-TAP PRESETS AND HOTKEYS
+Jump straight to 100, 150, 200 or 300%. Press Alt+Shift+↑ / ↓ on any tab to change its volume without opening XCoda, and Alt+Shift+0 to reset.
 
-XCoda is a Chrome audio booster designed to give you more control over the sound playing in your browser.
+🎛 TAB MIXER
+See every tab that's playing sound and set each one's volume, or mute it, from a single popup. Turn down the meeting, turn up the music.
 
-Boost audio beyond the normal browser volume level, adjust your listening experience, and use convenient controls across websites.
+🎵 SOUND MODES (EQUALIZER)
+• Clear – a soft, clean boost
+• Bass – deep, punchy low end (Pro)
+• Voice – clearer speech for podcasts, lectures and calls (Pro)
+• Movie – a wide, cinematic mix (Pro)
 
-FREE FEATURES
+🚫 MUSIC AD BLOCK (PRO)
+Skip supported music and video ads on popular streaming sites.
 
-• Audio boost up to 300%
-• Per-site audio controls
-• Easy volume adjustment
-• Audio enhancement controls
-• Settings saved in your browser
+💾 REMEMBERS EACH SITE
+XCoda remembers your volume per website, so YouTube, Spotify and Netflix each come back the way you like them.
 
-PRO FEATURES
+✨ XCODA PRO
+600% boost, every sound mode, Music Ad Block, and every new Pro feature. Monthly, yearly or lifetime.
 
-• Audio boost up to 600%
-• Premium sound scenes
-• Music Ad Block
-• Additional Pro controls
+🔒 PRIVATE BY DESIGN
+• No analytics, no ads, no tracking.
+• Your audio and browsing history never leave your browser.
+• Sign-in is only used for Pro.
 
-HOW IT WORKS
+Works on YouTube, Spotify, Netflix, Twitch, SoundCloud, Google Meet, Zoom (web), online courses and most sites that play audio. Some protected or browser-internal pages can't be processed by any extension.
 
-1. Install XCoda.
-2. Open XCoda from the Chrome toolbar.
-3. Adjust the audio boost level.
-4. Choose your preferred audio settings.
-5. Continue browsing while XCoda applies your settings.
+XCoda is an independent extension and is not affiliated with Google, YouTube, Spotify or any service it works with.
+```
 
-ACCOUNT & PRO FEATURES
+**Graphic assets**
+| Field | File |
+|---|---|
+| Store icon (128×128) | `store-icon-128.png` |
+| Screenshots (1280×800, up to 5) | `screenshot-1.jpg` … `screenshot-5.jpg` (in this order) |
+| Small promo tile (440×280) | `small-promo-440x280.jpg` |
+| Marquee promo tile (1400×560) | `marquee-1400x560.jpg` |
+| Global promo video | leave empty for now |
 
-XCoda provides optional account functionality for Pro features and subscription management. Users can choose to sign in when they want to use account or Pro functionality.
+**Additional fields**
+- Official URL: none (needs Search Console verification; skip)
+- Homepage URL: `https://volume-booster-ten.vercel.app/`
+- Support URL: `https://volume-booster-ten.vercel.app/support.html`
+- Mature content: **No**
+- Google Analytics 4: **leave off** (we promise no analytics)
+- Item support: **On**
 
-PRIVACY
+## Privacy
+**Single purpose:** Make audio playing in Chrome tabs louder and clearer, and control each tab's volume.
 
-XCoda stores extension settings locally in the browser.
+| Permission | Justification |
+|---|---|
+| Host `<all_urls>` | Applies XCoda's volume boost and sound modes to the media on whichever website the user is listening to; the user chooses the sites. Audio and page content are processed locally and never sent anywhere. |
+| `storage` | Saves the user's volume and sound settings per site, and temporary sign-in state for Pro. |
+| `identity` | Only when the user chooses "Continue with Google" to sign in for Pro. |
+| `alarms` | Re-checks the Pro plan in the background and ends fixed-term plans on time. |
+| Remote code | **No**, all code is in the package. |
 
-When users sign in, temporary authentication session data is stored using Chrome's session storage.
+**Data usage** (tick exactly these):
+- ✅ Personally identifiable information: email and name, only for users who sign in for Pro.
+- ✅ Authentication information: sign-in session for Pro, kept in session storage.
+- ✅ Financial and payment information: plan, order reference and payment status (card details never reach XCoda).
+- Everything else unchecked (no browsing history, website content, location or analytics).
+- ✅ I do not sell or transfer user data to third parties outside the approved use cases
+- ✅ I do not use or transfer user data for purposes unrelated to the item's single purpose
+- ✅ I do not use or transfer user data to determine creditworthiness or for lending purposes
 
-XCoda does not send users' audio data or browsing history to XCoda servers.
+**Privacy policy URL:** `https://volume-booster-ten.vercel.app/privacy.html`
 
-XCoda does not use Google Analytics or other analytics services.
+## Distribution
+Public · All regions · Free with in-app purchases (Pro). Visible to everyone.
 
-XCoda may communicate with its backend for authentication, account management, profile, and Pro/subscription functionality.
+## Test instructions (for the reviewer)
+```
+No account is needed to test the free features.
+1. Open any page playing audio (for example a YouTube video), click the XCoda icon, and move the boost slider or tap the 150% / 200% presets.
+2. Open two tabs playing audio: the "Other tabs playing" mixer in the popup lists the other tab; move its slider or tap its icon to mute it.
+3. Keyboard: Alt+Shift+Up / Down changes the current tab's volume, Alt+Shift+0 resets it.
+Pro features (600%, Bass/Voice/Movie, Music Ad Block) show a Pro prompt when tapped. A Pro test login can be provided on request.
+```
 
-THIRD-PARTY WEBSITES
-
-XCoda is an independent browser extension and is not affiliated with Google, YouTube, Spotify, or other third-party services that users may access while using the extension.
-
-SUPPORT
-
-If you experience an issue with XCoda, please use the support page provided with this listing.
-
-## Permission justifications
-
-### Host permission: `<all_urls>`
-
-XCoda requires access to webpages to apply audio enhancement controls to media playing in the browser. `<all_urls>` is required so users can use XCoda's audio controls across supported websites rather than being limited to a predefined list of domains. Audio and browsing history are not transmitted to XCoda servers.
-
-### `storage`
-
-Used to save local audio preferences and per-site settings. Chrome session storage holds temporary authentication and plan state while the browser session is active.
-
-### `identity`
-
-Used only when a user chooses Continue with Google for optional account and Pro functionality.
-
-### `alarms`
-
-Used to refresh signed-in plan status and return expired fixed-term plans to Free at the correct time.
-
-## Privacy tab declarations
-
-- Personally identifiable information: email address, account ID, and optional profile details are transmitted only for account and Pro functionality.
-- Authentication information: temporary access and refresh tokens are processed for sign-in and stored in Chrome session storage.
-- Financial and payment information: billing email, provider/order references, selected plan, payment status, and access dates are processed; complete card or bank details are not received by Fenwick Labs.
-- Website content: not collected or transmitted.
-- Browsing history/activity: not collected or transmitted. Website domains are read locally only to apply saved settings.
-- Audio/media content: not collected or transmitted.
-- Location: not collected or transmitted. XCoda has no country, region, geolocation, or leaderboard feature.
-- Analytics: no Google Analytics or other extension-usage analytics.
-- Advertising/tracking: no sale of personal data and no use of browsing activity or media content for advertising or tracking.
-
-## URLs
-
-- Homepage: https://volume-booster-ten.vercel.app/
-- Support: https://volume-booster-ten.vercel.app/support.html
-- Privacy policy: https://volume-booster-ten.vercel.app/privacy.html
+## What's new in 2.12.0 (for the "release notes" style blurb, optional)
+New look, one-tap presets, keyboard shortcuts, Tab Mixer, and a calmer, clearer volume dial.

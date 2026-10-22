@@ -133,3 +133,8 @@ body { background: var(--bg); }
 /* the number always fits inside the seal */
 .dial-seal { --mu-shape-size: calc(150px + var(--xc-level) * 30px); }
 .dial-value { font-size: 34px !important; min-width: 0 !important; }
+
+/* Music Ad Block card follows the theme (it had a hard-coded near-black) */
+.adblock-card { background: var(--raised) !important; border: 2px solid var(--line) !important; border-radius: var(--mu-radius-lg) !important; }
+/* Mixer: give the site name the room; the slider is narrower */
+.mixer-row { grid-template-columns: 28px minmax(0, 1fr) 84px 40px; }

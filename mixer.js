@@ -9,7 +9,13 @@
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const cap = () => (typeof isPro === 'function' && isPro() ? 600 : (globalThis.XCodaPlan && XCodaPlan.FREE_MAX_VOLUME) || 300);
-  const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+  // Friendly names: "YouTube", "Spotify"… from music-sites.js when known, else the bare domain
+  const host = (u) => {
+    try {
+      const h = new URL(u).hostname.replace(/^(www|open|music|m)\./, '');
+      return (globalThis.VBMusicSites && VBMusicSites.displayName && VBMusicSites.displayName(h)) || h;
+    } catch { return ''; }
+  };
 
   function render(tabs, activeId) {
     const others = tabs.filter((t) => t.id !== activeId);
