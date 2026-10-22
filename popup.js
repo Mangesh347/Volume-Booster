@@ -62,8 +62,8 @@ function wavyRingD(cx, cy, radius, amplitude, lobes, phase) {
 }
 
 function applyRingPath() {
-  const amp = 11 + dialIntensity * 6;
-  const d = wavyRingD(120, 120, 78, amp, 10, wavePhase);
+  const amp = 2.2 + dialIntensity * 2.6;
+  const d = wavyRingD(120, 120, 84, amp, 14, wavePhase);
   const track = $('ringTrack');
   const prog = $('ringProgress');
   if (track) track.setAttribute('d', d);
@@ -89,7 +89,7 @@ function startWaveLoop() {
   }
   const tick = () => {
     // Faster / livelier as boost rises
-    wavePhase += 0.028 + dialIntensity * 0.035;
+    wavePhase += 0.012 + dialIntensity * 0.02;
     applyRingPath();
     waveRaf = requestAnimationFrame(tick);
   };
@@ -125,6 +125,7 @@ function updateRingProgress(v) {
 
 function updateDialMotion(v) {
   dialIntensity = Math.min(1, Math.max(0.2, Number(v) / 600));
+  document.documentElement.style.setProperty('--xc-level', String(Math.min(1, Number(v) / 600)));
   updateRingProgress(v);
   const amp = 5 + dialIntensity * 8;
   const a = $('waveA');

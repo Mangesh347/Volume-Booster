@@ -16,3 +16,4 @@ build/
 .env.*.local
 ENV_PASTE.txt
 *.pem
+qa-shots/

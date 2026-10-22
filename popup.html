@@ -1,17 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XCoda</title>
+<link rel="stylesheet" href="mu/dist/tokens.css">
+<link rel="stylesheet" href="mu/theme.css">
 <link rel="stylesheet" href="popup.css">
+<link rel="stylesheet" href="css/gs-more.css">
+<link rel="stylesheet" href="css/xcoda-night.css">
 </head>
 <body>
 
 <div id="appRoot">
   <header class="header">
     <div class="brand">
-      <img class="brand-mark-img" src="icons/icon128.png" width="56" height="56" alt="XCoda">
+      <img class="brand-mark-img" src="icons/logo.svg" width="56" height="56" alt="XCoda">
       <div>
         <div class="brand-name">XCoda</div>
         <div class="brand-sub">Make every tab sound better</div>
@@ -39,6 +43,8 @@
     <section class="panel active" id="tab-boost" role="tabpanel">
       <div class="hero">
         <div class="dial" id="dial" aria-hidden="true">
+          <span class="mu-shape mu-shape--soft-burst dial-seal"></span>
+          <span class="mu-shape mu-shape--sunny dial-spark"></span>
           <svg class="dial-svg" viewBox="0 0 240 240">
             <defs>
               <linearGradient id="boostGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -74,6 +80,15 @@
           <input type="range" id="volumeSlider" min="0" max="600" value="100" step="1" aria-label="Boost amount">
           <span class="slider-cap-hint" id="freeCapHint">300% free · 600% with Pro</span>
         </label>
+
+        <div class="presets" id="presets" role="group" aria-label="Quick boost">
+          <button type="button" class="preset" data-v="100">100%</button>
+          <button type="button" class="preset" data-v="150">150%</button>
+          <button type="button" class="preset" data-v="200">200%</button>
+          <button type="button" class="preset" data-v="300">300%</button>
+          <button type="button" class="preset preset-pro" data-v="600">600% <span class="pro-badge">PRO</span></button>
+        </div>
+        <p class="hotkey-hint">Tip: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> changes this tab without opening XCoda</p>
       </div>
 
       <div class="features">
@@ -117,6 +132,11 @@
             <div class="feat-row-desc">Use this volume next time</div>
           </div>
           <button type="button" class="text-btn" id="autoApplyBtn">On</button>
+        </div>
+
+        <div class="mixer" id="mixer" hidden>
+          <p class="section-label">Other tabs playing</p>
+          <ul class="mixer-list" id="mixerList"></ul>
         </div>
       </div>
     </section>
@@ -223,5 +243,6 @@
 <script src="music-sites.js"></script>
 <script src="realtime.js"></script>
 <script src="popup.js"></script>
+<script src="mixer.js"></script>
 </body>
 </html>

@@ -1,9 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "XCoda — Clear Audio Booster",
-  "version": "2.11.11",
-  "description": "Boost Chrome audio up to 300% with XCoda. Pro adds 600% boost, sound scenes, and Music Ad Block.",
-  "permissions": ["storage", "identity", "alarms"],
+  "name": "XCoda – Volume Booster, Equalizer & Bass Boost",
+  "version": "2.12.0",
+  "description": "Boost tab volume up to 600%, add bass, make voices clear and mix every playing tab. Free up to 300%. No ads, no tracking.",
+  "permissions": [
+    "storage",
+    "identity",
+    "alarms"
+  ],
   "host_permissions": [
     "<all_urls>"
   ],
@@ -27,9 +31,18 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "exclude_matches": ["https://accounts.google.com/*"],
-      "js": ["music-sites.js", "vb-adblock.js", "injected.js", "content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "exclude_matches": [
+        "https://accounts.google.com/*"
+      ],
+      "js": [
+        "music-sites.js",
+        "vb-adblock.js",
+        "injected.js",
+        "content.js"
+      ],
       "run_at": "document_start",
       "all_frames": true
     }
@@ -39,5 +52,28 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "commands": {
+    "volume-up": {
+      "suggested_key": {
+        "default": "Alt+Shift+Up",
+        "mac": "Alt+Shift+Up"
+      },
+      "description": "Boost this tab by 10%"
+    },
+    "volume-down": {
+      "suggested_key": {
+        "default": "Alt+Shift+Down",
+        "mac": "Alt+Shift+Down"
+      },
+      "description": "Lower this tab by 10%"
+    },
+    "volume-reset": {
+      "suggested_key": {
+        "default": "Alt+Shift+0",
+        "mac": "Alt+Shift+0"
+      },
+      "description": "Reset this tab to 100%"
+    }
   }
 }

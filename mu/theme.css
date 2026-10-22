@@ -1,0 +1,233 @@
+/* Material You Design Theme — components + continuous looping motion.
+   Load AFTER dist/tokens.css. Everything is prefixed `mu-` so it is safe inside
+   extension content scripts (put it in a Shadow DOM root) and on websites.
+   Turn all loops off for one subtree with data-motion="off", or globally via
+   prefers-reduced-motion. */
+
+/* ---------- base ---------- */
+.mu-root, .mu-root * { box-sizing: border-box; }
+.mu-root {
+  background: var(--mu-background);
+  color: var(--mu-on-background);
+  font: var(--mu-type-body-large);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.mu-display    { font: var(--mu-type-display-large); letter-spacing: var(--mu-tracking-display-large); }
+.mu-display-l  { font: var(--mu-type-display-large);  letter-spacing: var(--mu-tracking-display-large); }
+.mu-display-m  { font: var(--mu-type-display-medium); letter-spacing: var(--mu-tracking-display-medium); }
+.mu-display-s  { font: var(--mu-type-display-small);  letter-spacing: var(--mu-tracking-display-small); }
+.mu-headline-l { font: var(--mu-type-headline-large); }
+.mu-headline-m { font: var(--mu-type-headline-medium); }
+/* after the font shorthands above: `font` resets font-variation-settings */
+.mu-display, .mu-display-l, .mu-display-m, .mu-display-s, .mu-headline-l, .mu-headline-m, .mu-palette-card b {
+  font-variation-settings: var(--mu-display-settings);
+  margin: 0;
+}
+.mu-title-l    { font: var(--mu-type-title-large); margin: 0; }
+.mu-title-m    { font: var(--mu-type-title-medium); margin: 0; }
+.mu-body-m     { font: var(--mu-type-body-medium); }
+.mu-label      { font: var(--mu-type-label-large); letter-spacing: var(--mu-tracking-label-large); }
+.mu-fun        { font-family: var(--mu-font-fun); font-weight: 400; line-height: 1; letter-spacing: -0.01em; }
+.mu-mono       { font-family: var(--mu-font-mono); font-size: 0.875em; }
+.mu-muted      { color: var(--mu-on-surface-variant); }
+
+:where(.mu-root) :focus-visible {
+  outline: 3px solid var(--mu-tertiary);
+  outline-offset: 2px;
+  border-radius: var(--mu-radius-sm);
+}
+
+/* ---------- buttons (pill, spring press) ---------- */
+.mu-btn {
+  --_bg: var(--mu-primary); --_fg: var(--mu-on-primary);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--mu-space-2);
+  min-height: 44px; padding: 0 var(--mu-space-5);
+  border: 0; border-radius: var(--mu-radius-full);
+  background: var(--_bg); color: var(--_fg);
+  font: var(--mu-type-label-large); letter-spacing: var(--mu-tracking-label-large);
+  cursor: pointer; text-decoration: none;
+  transition: transform var(--mu-dur-base) var(--mu-ease-standard),
+              border-radius var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate),
+              box-shadow var(--mu-dur-base) var(--mu-ease-standard),
+              background-color var(--mu-dur-base) var(--mu-ease-standard);
+}
+.mu-btn:hover  { box-shadow: var(--mu-elev-2); }
+.mu-btn:active { transform: scale(0.96); border-radius: var(--mu-radius-md); } /* M3 Expressive shape-shift on press */
+.mu-btn:disabled { opacity: .38; cursor: not-allowed; box-shadow: none; transform: none; }
+.mu-btn--tonal    { --_bg: var(--mu-secondary-container); --_fg: var(--mu-on-secondary-container); }
+.mu-btn--outlined { --_bg: transparent; --_fg: var(--mu-primary); box-shadow: inset 0 0 0 2px var(--mu-outline); }
+.mu-btn--text     { --_bg: transparent; --_fg: var(--mu-primary); padding: 0 var(--mu-space-3); }
+.mu-btn--sticker  { box-shadow: var(--mu-elev-sticker); border: 2px solid var(--mu-on-background); }
+.mu-btn--sticker:active { box-shadow: 0 0 0 rgba(0,0,0,0); transform: translateY(3px); }
+
+.mu-fab {
+  width: 64px; height: 64px; border: 0; cursor: pointer;
+  border-radius: var(--mu-radius-lg);
+  background: var(--mu-primary-container); color: var(--mu-on-primary-container);
+  box-shadow: var(--mu-elev-3);
+  display: grid; place-items: center; font: var(--mu-type-title-large);
+  transition: border-radius var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate);
+}
+.mu-fab:hover { border-radius: 50%; }
+
+/* ---------- cards ---------- */
+.mu-card {
+  background: var(--mu-surface-container-low);
+  color: var(--mu-on-surface);
+  border-radius: var(--mu-radius-lg);
+  padding: var(--mu-space-5);
+  box-shadow: var(--mu-elev-1);
+}
+.mu-card--filled { background: var(--mu-surface-container-highest); box-shadow: none; }
+.mu-card--outlined { background: var(--mu-surface); box-shadow: inset 0 0 0 1px var(--mu-outline-variant); }
+
+/* Palette card: the signature "name + hex" block from the mood board */
+.mu-palette-card {
+  border-radius: var(--mu-radius-xl);
+  padding: var(--mu-space-6) var(--mu-space-5);
+  display: grid; gap: var(--mu-space-1); text-align: center;
+  background: var(--mu-duo-bg, var(--mu-primary)); color: var(--mu-duo-fg, var(--mu-on-primary));
+}
+.mu-palette-card b { font-family: var(--mu-font-display); font-variation-settings: var(--mu-display-settings); font-weight: 800; font-size: 28px; line-height: 1.05; }
+.mu-palette-card span { font-family: var(--mu-font-mono); font-size: 13px; opacity: .9; }
+
+/* Duo stack: blocks that butt together like the colour boards */
+.mu-duo-stack { display: grid; border-radius: var(--mu-radius-xl); overflow: hidden; }
+.mu-duo-stack > * { padding: var(--mu-space-6); }
+
+/* ---------- chips, badges, fields, switch ---------- */
+.mu-chip {
+  display: inline-flex; align-items: center; gap: var(--mu-space-1);
+  height: 32px; padding: 0 var(--mu-space-3);
+  border-radius: var(--mu-radius-full);
+  background: var(--mu-surface-container-high); color: var(--mu-on-surface);
+  font: var(--mu-type-label-large); border: 0; cursor: pointer;
+  transition: background-color var(--mu-dur-base) var(--mu-ease-standard);
+}
+.mu-chip[aria-pressed="true"] { background: var(--mu-secondary-container); color: var(--mu-on-secondary-container); }
+
+.mu-badge {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: var(--mu-radius-full); background: var(--mu-error); color: var(--mu-on-error);
+  font: var(--mu-type-label-small);
+}
+
+.mu-field { display: grid; gap: var(--mu-space-1); }
+.mu-field label { font: var(--mu-type-label-large); color: var(--mu-on-surface-variant); }
+.mu-field input, .mu-field textarea, .mu-field select {
+  min-height: 48px; padding: var(--mu-space-3) var(--mu-space-4);
+  border-radius: var(--mu-radius-md);
+  border: 2px solid var(--mu-outline-variant);
+  background: var(--mu-surface-container-lowest); color: var(--mu-on-surface);
+  font: var(--mu-type-body-large);
+  transition: border-color var(--mu-dur-fast) var(--mu-ease-standard);
+}
+.mu-field input:focus, .mu-field textarea:focus, .mu-field select:focus { outline: none; border-color: var(--mu-primary); }
+
+.mu-switch { appearance: none; width: 52px; height: 32px; border-radius: 16px; position: relative; cursor: pointer;
+  background: var(--mu-surface-container-highest); box-shadow: inset 0 0 0 2px var(--mu-outline);
+  transition: background-color var(--mu-dur-base) var(--mu-ease-standard); }
+.mu-switch::after { content: ""; position: absolute; top: 8px; left: 8px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--mu-outline);
+  transition: all var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate); }
+.mu-switch:checked { background: var(--mu-primary); box-shadow: none; }
+.mu-switch:checked::after { left: 24px; top: 4px; width: 24px; height: 24px; background: var(--mu-on-primary); }
+
+/* ---------- shapes (mask from the generated SVGs; colour = currentColor bg) ---------- */
+.mu-shape { display: inline-block; width: var(--mu-shape-size, 96px); aspect-ratio: 1; background: currentColor;
+  -webkit-mask: var(--_m) center / contain no-repeat; mask: var(--_m) center / contain no-repeat; }
+.mu-shape--cookie      { --_m: url('dist/shapes/cookie.svg'); }
+.mu-shape--flower      { --_m: url('dist/shapes/flower.svg'); }
+.mu-shape--clover      { --_m: url('dist/shapes/clover.svg'); }
+.mu-shape--sunny       { --_m: url('dist/shapes/sunny.svg'); }
+.mu-shape--burst       { --_m: url('dist/shapes/burst.svg'); }
+.mu-shape--soft-burst  { --_m: url('dist/shapes/soft-burst.svg'); }
+.mu-shape--wavy-circle { --_m: url('dist/shapes/wavy-circle.svg'); }
+.mu-shape--pill-blob   { --_m: url('dist/shapes/pill-blob.svg'); }
+.mu-shape--circle      { --_m: url('dist/shapes/circle.svg'); }
+
+/* Scalloped badge with text that sits still while the edge spins */
+.mu-seal { position: relative; display: inline-grid; place-items: center; width: var(--mu-shape-size, 120px); aspect-ratio: 1; }
+.mu-seal > .mu-shape { position: absolute; inset: 0; width: 100%; }
+.mu-seal > :not(.mu-shape) { position: relative; text-align: center; }
+
+/* ---------- continuous looping motion ---------- */
+@keyframes mu-spin    { to { transform: rotate(360deg); } }
+@keyframes mu-float   { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(calc(-1 * var(--mu-float-amp, 8px))); } }
+@keyframes mu-wobble  { 0%, 100% { transform: rotate(calc(-1 * var(--mu-wobble-deg, 4deg))); } 50% { transform: rotate(var(--mu-wobble-deg, 4deg)); } }
+@keyframes mu-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+@keyframes mu-blob {
+  0%, 100% { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+  25%      { border-radius: 61% 39% 45% 55% / 58% 37% 63% 42%; }
+  50%      { border-radius: 38% 62% 36% 64% / 49% 61% 39% 51%; }
+  75%      { border-radius: 55% 45% 59% 41% / 36% 55% 45% 64%; }
+}
+@keyframes mu-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(6%, -8%) scale(1.08); }
+  66%      { transform: translate(-7%, 5%) scale(0.94); }
+}
+@keyframes mu-marquee { to { transform: translateX(-50%); } }
+@keyframes mu-squiggle { to { stroke-dashoffset: -120; } }
+@keyframes mu-shape-cycle {
+  0%, 18%   { -webkit-mask-image: url('dist/shapes/cookie.svg'); mask-image: url('dist/shapes/cookie.svg'); }
+  20%, 38%  { -webkit-mask-image: url('dist/shapes/flower.svg'); mask-image: url('dist/shapes/flower.svg'); }
+  40%, 58%  { -webkit-mask-image: url('dist/shapes/clover.svg'); mask-image: url('dist/shapes/clover.svg'); }
+  60%, 78%  { -webkit-mask-image: url('dist/shapes/sunny.svg');  mask-image: url('dist/shapes/sunny.svg'); }
+  80%, 98%  { -webkit-mask-image: url('dist/shapes/soft-burst.svg'); mask-image: url('dist/shapes/soft-burst.svg'); }
+}
+
+.mu-loop-spin    { animation: mu-spin var(--mu-loop-spin) linear infinite; }
+.mu-loop-spin-rev{ animation: mu-spin var(--mu-loop-spin) linear infinite reverse; }
+.mu-loop-float   { animation: mu-float var(--mu-loop-float) var(--mu-ease-loop) infinite; }
+.mu-loop-wobble  { animation: mu-wobble var(--mu-loop-wobble) var(--mu-ease-loop) infinite; transform-origin: 50% 60%; }
+.mu-loop-breathe { animation: mu-breathe var(--mu-loop-breathe) var(--mu-ease-loop) infinite; }
+.mu-loop-blob    { animation: mu-blob var(--mu-loop-blob) var(--mu-ease-loop) infinite; }
+.mu-loop-shapes  { animation: mu-shape-cycle var(--mu-loop-morph) steps(1) infinite; }
+.mu-delay-1 { animation-delay: -1.3s; } .mu-delay-2 { animation-delay: -2.7s; } .mu-delay-3 { animation-delay: -4.1s; }
+
+/* Drifting colour blobs behind content: <div class="mu-drift"><i></i><i></i><i></i></div> */
+.mu-drift { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+.mu-drift > i { position: absolute; width: 46%; aspect-ratio: 1; border-radius: 50%; filter: blur(48px); opacity: .55;
+  animation: mu-drift var(--mu-loop-drift) var(--mu-ease-loop) infinite, mu-blob var(--mu-loop-blob) var(--mu-ease-loop) infinite; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mu-drift > i { opacity: .28; } }
+:root[data-theme="dark"] .mu-drift > i { opacity: .28; }
+.mu-drift > i:nth-child(1) { background: var(--mu-c-tomato);    top: -10%; left: -8%; }
+.mu-drift > i:nth-child(2) { background: var(--mu-c-bubblegum); top: 30%;  right: -10%; animation-delay: -7s, -3s; }
+.mu-drift > i:nth-child(3) { background: var(--mu-c-sky);       bottom: -18%; left: 24%; animation-delay: -14s, -6s; }
+
+/* Marquee band: <div class="mu-marquee"><div class="mu-marquee__track"><span>…</span><span aria-hidden="true">…</span></div></div> */
+.mu-marquee { overflow: hidden; white-space: nowrap; }
+.mu-marquee__track { display: inline-flex; animation: mu-marquee var(--mu-loop-marquee) linear infinite; }
+.mu-marquee__track > * { padding-right: 2em; }
+.mu-marquee:hover .mu-marquee__track { animation-play-state: paused; }
+
+/* Squiggle line: <svg class="mu-squiggle" viewBox="0 0 240 24"><path d="M0 12 Q 15 0 30 12 T 60 12 T 90 12 T 120 12 T 150 12 T 180 12 T 210 12 T 240 12"/></svg> */
+.mu-squiggle { width: 100%; height: 24px; overflow: visible; }
+.mu-squiggle path { fill: none; stroke: currentColor; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 60 0;
+  animation: mu-squiggle var(--mu-loop-squiggle) linear infinite; }
+
+/* Background that cycles through the brand duos (one per page, max) */
+@keyframes mu-duo-cycle {
+  0%, 100% { background-color: var(--mu-c-tomato);  color: var(--mu-c-cream); }
+  25%      { background-color: var(--mu-c-plum);    color: var(--mu-c-bubblegum); }
+  50%      { background-color: var(--mu-c-cobalt);  color: var(--mu-c-sky); }
+  75%      { background-color: var(--mu-c-forest);  color: var(--mu-c-butter); }
+}
+.mu-loop-duo { animation: mu-duo-cycle var(--mu-loop-duo) var(--mu-ease-loop) infinite; }
+
+/* Entrance (one-shot) */
+@keyframes mu-pop-in { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: none; } }
+.mu-enter { animation: mu-pop-in var(--mu-dur-long) var(--mu-ease-emphasized-decelerate) both; }
+
+/* ---------- accessibility: motion off ---------- */
+[data-motion="off"] *, [data-motion="off"] { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--mu-dur-fast) !important;
+  }
+  .mu-marquee__track { animation: none !important; }
+}

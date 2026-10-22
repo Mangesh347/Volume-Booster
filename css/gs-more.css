@@ -1,0 +1,19 @@
+/* "More from Good Space": a small sticker-style pill with three bobbing extension dots.
+   Each extension sets --gs-accent to its own brand colour. */
+.gs-more {
+  --gs-accent: #b83a12;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px 6px 8px; border-radius: 999px;
+  background: color-mix(in oklab, var(--gs-accent) 12%, transparent);
+  color: var(--gs-accent); font: 700 12px/1 system-ui, sans-serif; text-decoration: none;
+  transition: scale 320ms cubic-bezier(.34, 1.56, .64, 1), background-color 200ms;
+}
+.gs-more:hover { background: color-mix(in oklab, var(--gs-accent) 20%, transparent); scale: 1.03; }
+.gs-more:active { scale: .96; }
+.gs-more .gs-dots { display: inline-flex; gap: 3px; }
+.gs-more .gs-dots i { width: 7px; height: 7px; border-radius: 50%; display: block; animation: gs-bob 2.4s ease-in-out infinite; }
+.gs-more .gs-dots i:nth-child(1) { background: #f24e1e; }
+.gs-more .gs-dots i:nth-child(2) { background: #2f55c4; animation-delay: .2s; }
+.gs-more .gs-dots i:nth-child(3) { background: #eab04a; animation-delay: .4s; }
+@keyframes gs-bob { 50% { translate: 0 -2px; } }
+@media (prefers-reduced-motion: reduce) { .gs-more .gs-dots i { animation: none; } }

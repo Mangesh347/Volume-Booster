@@ -1,0 +1,135 @@
+/* XCoda night skin on the studio Material You theme (mu/dist/tokens.css + mu/theme.css, forced dark).
+   Boards: "Berry / Mauve" + "Plum / Milk" → plum-black paper, bubblegum accent, tomato heat.
+   Only re-maps popup.css variables and adds decoration; every id/class popup.js uses is unchanged.
+   Loops on screen: header seal spin, dial glow breathe, wave (existing). */
+:root {
+  --bg: var(--mu-background);
+  --surface: var(--mu-surface-container-low);
+  --raised: var(--mu-surface-container);
+  --line: var(--mu-outline-variant);
+  --text: var(--mu-on-surface);
+  --muted: var(--mu-on-surface-variant);
+  --faint: var(--mu-outline);
+  --white: var(--mu-c-bubblegum);   /* popup.css uses --white as the accent fill */
+  --black: var(--mu-c-plum);        /* …and --black as text on it */
+  --fill: var(--mu-c-bubblegum);
+  --radius: var(--mu-radius-lg);
+  --ease: var(--mu-ease-standard);
+}
+html, body { font-family: var(--mu-font-body); font-size: 13px; }
+body { background: var(--bg); }
+
+/* Header: plum duo with a spinning wavy seal behind the logo */
+.header { position: relative; isolation: isolate; overflow: hidden; border-radius: var(--mu-radius-xl); padding: 12px 12px 14px; background: var(--mu-c-wine); }
+.header::before {
+  content: ""; position: absolute; z-index: -1; width: 150px; aspect-ratio: 1; right: -46px; top: -56px;
+  background: var(--mu-c-cherry); opacity: .55; -webkit-mask: url("../mu/dist/shapes/wavy-circle.svg") center / contain no-repeat;
+  mask: url("../mu/dist/shapes/wavy-circle.svg") center / contain no-repeat; animation: mu-spin var(--mu-loop-spin) linear infinite;
+}
+.header::after {
+  content: ""; position: absolute; z-index: -1; width: 46px; aspect-ratio: 1; left: 40px; bottom: -18px;
+  background: var(--mu-c-sky); opacity: .85;
+  -webkit-mask: url("../mu/dist/shapes/sunny.svg") center / contain no-repeat; mask: url("../mu/dist/shapes/sunny.svg") center / contain no-repeat;
+}
+.brand-mark-img { filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .55)); animation: mu-pop-in var(--mu-dur-long) var(--mu-ease-emphasized-decelerate) both; }
+.brand-name { font: 900 26px/1 var(--mu-font-display); font-variation-settings: var(--mu-display-settings); color: var(--mu-c-bubblegum); letter-spacing: -.01em; }
+.brand-sub { color: #F3D9E6; }
+
+/* Dial: theme colours instead of the rainbow, chunky display number, gentle glow */
+#boostGrad stop:nth-child(1) { stop-color: #FFC2E2; }
+#boostGrad stop:nth-child(2) { stop-color: #FFB0CF; }
+#boostGrad stop:nth-child(3) { stop-color: #FF8FB8; }
+#boostGrad stop:nth-child(4) { stop-color: #F24E1E; }
+#boostGrad stop:nth-child(5) { stop-color: #C21D5F; }
+.dial { position: relative; }
+.dial::before {
+  content: ""; position: absolute; inset: 14%; border-radius: 50%; z-index: 0;
+  background: radial-gradient(circle, rgba(255, 194, 226, .28), transparent 70%);
+  animation: mu-breathe var(--mu-loop-breathe) var(--mu-ease-loop) infinite;
+}
+.dial-value { font: 900 40px/1 var(--mu-font-display) !important; font-variation-settings: var(--mu-display-settings); color: var(--mu-c-bubblegum); }
+.dial-kicker { letter-spacing: .2em; color: var(--mu-c-sky); }
+
+/* Tabs & plan strip */
+.tab { font-weight: 800; transition: background-color var(--mu-dur-base) var(--mu-ease-standard), color var(--mu-dur-base); }
+.plan-strip { border-radius: var(--mu-radius-full); }
+.panel.active { animation: mu-pop-in var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate) both; }
+
+/* Sound modes become sticker tiles */
+.feat {
+  border: 2px solid var(--mu-c-bubblegum) !important; border-radius: var(--mu-radius-lg) !important;
+  box-shadow: 0 3px 0 var(--mu-c-bubblegum);
+  transition: transform var(--mu-dur-base) var(--mu-ease-standard), box-shadow var(--mu-dur-base) var(--mu-ease-standard),
+              border-radius var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate), background-color var(--mu-dur-base);
+}
+.feat:hover { transform: translateY(-2px); }
+.feat:active { transform: translateY(3px); box-shadow: none; border-radius: var(--mu-radius-md) !important; }
+.feat.active { background: var(--mu-c-bubblegum) !important; color: var(--mu-c-plum) !important; }
+.feat.active .feat-desc { color: var(--mu-c-wine) !important; }
+.feat-title { font-family: var(--mu-font-display); font-variation-settings: var(--mu-display-settings); font-weight: 800; }
+
+.pro-badge { background: var(--mu-c-sky) !important; color: var(--mu-c-plum) !important; }
+.btn-primary { box-shadow: 0 3px 0 rgba(0, 0, 0, .6); transition: transform var(--mu-dur-base) var(--mu-ease-standard), border-radius var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate); }
+.btn-primary:active { transform: translateY(3px); box-shadow: none; border-radius: var(--mu-radius-md); }
+#upgradeBtn { animation: mu-breathe var(--mu-loop-breathe) var(--mu-ease-loop) infinite; }
+.price-pill.recommended { background: var(--mu-c-bubblegum) !important; color: var(--mu-c-plum) !important; }
+.pro-heading { font: 900 28px/1.05 var(--mu-font-display); font-variation-settings: var(--mu-display-settings); color: var(--mu-c-bubblegum); }
+
+/* Tab Mixer */
+.mixer { margin-top: 12px; }
+.mixer-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.mixer-row {
+  display: grid; grid-template-columns: 28px 1fr 96px 40px; align-items: center; gap: 8px;
+  background: var(--raised); border-radius: var(--mu-radius-md); padding: 6px 8px;
+  animation: mu-pop-in var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate) both; animation-delay: calc(var(--i) * 50ms);
+}
+.mixer-mute { width: 28px; height: 28px; border-radius: 50%; border: 0; background: var(--surface); display: grid; place-items: center; cursor: pointer; transition: scale var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate); }
+.mixer-mute:active { scale: .9; }
+.mixer-mute.is-muted { opacity: .45; outline: 2px solid var(--mu-c-tomato); }
+.mixer-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--mu-c-bubblegum); }
+.mixer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.mixer-row input[type="range"] { width: 100%; accent-color: var(--mu-c-bubblegum); }
+.mixer-val { font: 800 12px var(--mu-font-mono); color: var(--mu-c-bubblegum); text-align: right; }
+
+.footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.brand-mark-img { background: var(--mu-c-bubblegum); border-radius: 50%; padding: 3px; }
+.price-pill.recommended span { color: var(--mu-c-wine) !important; opacity: 1 !important; }
+
+/* ── Centre volume dial, redesigned ──
+   A soft-burst seal sits behind the ring; it grows and warms from bubblegum to tomato as the boost
+   rises (--xc-level 0…1, set by popup.js). The ring is a calm wavy circle with a thick capped arc. */
+.dial { width: 210px; height: 210px; margin: 4px auto 12px; display: grid; place-items: center; --xc-level: .17; }
+.dial::before { inset: 22%; background: radial-gradient(circle, color-mix(in oklab, var(--mu-c-tomato) calc(var(--xc-level) * 100%), var(--mu-c-bubblegum)) 0%, transparent 70%); opacity: .5; }
+.dial-seal {
+  position: absolute; inset: 0; margin: auto; z-index: 0;
+  --mu-shape-size: calc(118px + var(--xc-level) * 34px);
+  color: color-mix(in oklab, var(--mu-c-tomato) calc(var(--xc-level) * 100%), var(--mu-c-bubblegum));
+  opacity: .95;
+  animation: mu-spin calc(30s - var(--xc-level) * 18s) linear infinite;
+  transition: width 320ms var(--mu-ease-emphasized-decelerate), color 320ms var(--mu-ease-standard);
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, .45));
+}
+.dial-spark { position: absolute; z-index: 3; right: 18px; top: 16px; --mu-shape-size: 26px; color: var(--mu-c-sky); animation: mu-float var(--mu-loop-float) var(--mu-ease-loop) infinite; }
+.dial-svg { position: absolute; inset: 0; z-index: 1; }
+.ring-track { stroke: var(--mu-surface-container-high); stroke-width: 12; opacity: 1; }
+.ring-progress { stroke-width: 12; filter: drop-shadow(0 0 8px rgba(255, 194, 226, .35)); }
+.dial-core { z-index: 2; }
+.dial-value { font-size: 40px !important; color: var(--mu-c-plum) !important; letter-spacing: -.02em; }
+.dial-kicker { color: var(--mu-c-wine) !important; font-weight: 900; }
+
+/* Presets */
+.presets { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 10px 0 2px; }
+.preset {
+  border: 2px solid var(--mu-c-bubblegum); background: transparent; color: var(--mu-c-bubblegum); cursor: pointer;
+  font: 800 12px var(--mu-font-body); border-radius: 999px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;
+  transition: background-color var(--mu-dur-base) var(--mu-ease-standard), color var(--mu-dur-base), border-radius var(--mu-dur-slow) var(--mu-ease-emphasized-decelerate);
+}
+.preset:hover { background: color-mix(in oklab, var(--mu-c-bubblegum) 15%, transparent); }
+.preset:active { border-radius: var(--mu-radius-sm); }
+.preset.on { background: var(--mu-c-bubblegum); color: var(--mu-c-plum); }
+.preset .pro-badge { font-size: 9px; padding: 1px 5px; }
+.hotkey-hint { text-align: center; margin: 8px 0 0; font-size: 11px; color: var(--muted); }
+.hotkey-hint kbd { font: 700 10px var(--mu-font-mono); background: var(--raised); border-radius: 5px; padding: 1px 4px; }
+/* the number always fits inside the seal */
+.dial-seal { --mu-shape-size: calc(150px + var(--xc-level) * 30px); }
+.dial-value { font-size: 34px !important; min-width: 0 !important; }

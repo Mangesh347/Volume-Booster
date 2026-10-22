@@ -569,6 +569,56 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // Tab Mixer: every tab that's playing sound, with its saved volume
+  if (msg.action === 'mixerList') {
+    chrome.tabs.query({ audible: true }, (tabs) => {
+      const keys = tabs.map((t) => `tab_${t.id}`);
+      chrome.storage.local.get(keys, (res) =>
+        sendResponse(
+          tabs.map((t) => ({
+            id: t.id,
+            title: t.title || '',
+            url: t.url || '',
+            icon: /^https:\/\//.test(t.favIconUrl || '') ? t.favIconUrl : '',
+            volume: (res[`tab_${t.id}`] && res[`tab_${t.id}`].volume) || 100,
+            muted: !!(t.mutedInfo && t.mutedInfo.muted)
+          }))
+        )
+      );
+    });
+    return true;
+  }
+
+  // Tab Mixer: set one tab's volume (capped by the plan exactly like the main slider)
+  if (msg.action === 'mixerSet') {
+    const id = Number(msg.tabId);
+    const volume = Math.max(0, Math.min(600, parseInt(msg.volume, 10) || 0));
+    if (!Number.isInteger(id)) {
+      sendResponse({ ok: false });
+      return false;
+    }
+    chrome.storage.local.get(`tab_${id}`, (res) => {
+      const next = { ...(res[`tab_${id}`] || { powered: true, mode: 'softclear' }), volume };
+      sessionGet(['auralis_entitlement']).then((s) => {
+        const safe = clampStateForPlan(next, normalizeEntitlement(s.auralis_entitlement || { pro: false }));
+        chrome.storage.local.set({ [`tab_${id}`]: safe }, () => {
+          applyToTab(id, safe);
+          updateBadge(id, safe.volume);
+          sendResponse({ ok: true, volume: safe.volume });
+        });
+      });
+    });
+    return true;
+  }
+
+  if (msg.action === 'mixerMute') {
+    chrome.tabs.update(Number(msg.tabId), { muted: !!msg.muted }, () => {
+      void chrome.runtime.lastError;
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
   if (msg.action === 'updateBadge') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) updateBadge(tabs[0].id, msg.volume);
@@ -670,3 +720,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
 });
+
+// Hotkeys: Alt+Shift+↑/↓ change the current tab by 10%, Alt+Shift+0 resets to 100%.
+// Same plan cap as the popup (clampStateForPlan); the badge shows the new level.
+if (chrome.commands && chrome.commands.onCommand) {
+  chrome.commands.onCommand.addListener((command) => {
+    const step = { 'volume-up': 10, 'volume-down': -10 }[command];
+    if (step === undefined && command !== 'volume-reset') return;
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs && tabs[0];
+      if (!tab || !/^https?:/.test(tab.url || '')) return;
+      const domain = getDomain(tab.url);
+      chrome.storage.local.get([`tab_${tab.id}`, `site_${domain}`], (res) => {
+        const cur = res[`tab_${tab.id}`] || res[`site_${domain}`] || { powered: true, mode: 'softclear', volume: 100 };
+        const volume = command === 'volume-reset' ? 100 : Math.max(0, Math.min(600, (parseInt(cur.volume, 10) || 100) + step));
+        sessionGet(['auralis_entitlement']).then((s) => {
+          const safe = clampStateForPlan({ ...cur, powered: true, volume }, normalizeEntitlement(s.auralis_entitlement || { pro: false }));
+          chrome.storage.local.set({ [`tab_${tab.id}`]: safe }, () => {
+            applyToTab(tab.id, safe);
+            updateBadge(tab.id, safe.volume);
+          });
+        });
+      });
+    });
+  });
+}
